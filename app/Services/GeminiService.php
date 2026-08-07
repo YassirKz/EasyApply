@@ -191,10 +191,6 @@ class GeminiService
 
         // Extract Sector
         $secteur = 'IT & Softwareentwicklung';
-        if (preg_match('/(Automotive|Software|Beratung|Finanzen|Medizin|E-Commerce|Marketing|Ingenieurwesen|Industrie)/i', $text, $matches)) {
-            $secteur = ucfirst(strtolower($matches[0]));
-        }
-
         return [
             'firma'    => e(strip_tags($firma)),
             'email'    => e(strip_tags($email)),
@@ -202,4 +198,150 @@ class GeminiService
             'secteur'  => e(strip_tags($secteur)),
         ];
     }
+
+    /**
+     * Search and extract company data from any input (Name, URL, Job Offer Text, or combination) using Gemini AI.
+     * Returns an array with keys: firma, email, direktor, secteur.
+     */
+    public function searchCompanyData(string $input): array
+
+    {
+        $cleanInput = trim(htmlspecialchars_decode($input, ENT_QUOTES));
+
+        if (!empty($this->apiKey) && $this->apiKey !== 'YOUR_GEMINI_API_KEY') {
+            $prompt = "Du bist ein Assistent für Bewerbungsmanagement. Deine Aufgabe ist es, aus den folgenden Informationen (beliebiger Typ: Name, URL oder Text) die wichtigsten Daten für eine Bewerbung zu extrahieren.\n\n"
+                . "**Eingabe (einer der folgenden Typen):**\n"
+                . "- Typ 1: Nur der Firmenname (z.B. \"BMW\")\n"
+                . "- Typ 2: Eine URL (z.B. \"https://www.bmw.de\")\n"
+                . "- Typ 3: Der vollständige Text einer Stellenanzeige (beliebige Länge)\n"
+                . "- Typ 4: Eine Kombination aus Name + URL + Text\n\n"
+                . "**Deine Aufgabe:**\n"
+                . "1. Erkenne automatisch, welcher Typ vorliegt.\n"
+                . "2. Extrahiere oder recherchiere (aus Deinem Wissen) diese 4 Informationen:\n"
+                . "   - Firmenname (bestätigen oder korrigieren)\n"
+                . "   - Kontakt-E-Mail (falls nicht direkt angegeben, schlage eine plausible E-Mail vor: bewerbung@firma.de, karriere@firma.de, info@firma.de)\n"
+                . "   - Ansprechpartner (falls genannt, sonst \"Personalabteilung\")\n"
+                . "   - Branche (z.B. \"Automotive\", \"Software\", \"Beratung\") – recherchiere bei Bedarf\n\n"
+                . "3. **Regeln:**\n"
+                . "   - Wenn die Eingabe nur ein Name ist, nutze Dein Wissen, um die fehlenden Felder zu füllen.\n"
+                . "   - Wenn die Eingabe eine URL ist, versuche, die Informationen aus dem Domain-Namen und Deinem Wissen zu extrahieren.\n"
+                . "   - Wenn die Eingabe ein Text ist, suche direkt darin nach den Informationen.\n"
+                . "   - Wenn eine Information fehlt, gib einen plausiblen Standardwert (z.B. \"nicht genannt\").\n\n"
+                . "**Gib die Antwort NUR als JSON-Objekt zurück, ohne Erklärungen.**\n"
+                . "Format:\n"
+                . "{\n"
+                . "  \"firma\": \"...\",\n"
+                . "  \"email\": \"...\",\n"
+                . "  \"direktor\": \"...\",\n"
+                . "  \"secteur\": \"...\"\n"
+                . "}\n\n"
+                . "Eingabe:\n"
+                . $cleanInput;
+
+            try {
+                $response = Http::timeout(10)->withHeaders([
+                    'Content-Type' => 'application/json',
+                ])->post($this->apiUrl, [
+                    'contents' => [
+                        [
+                            'parts' => [
+                                ['text' => $prompt]
+                            ]
+                        ]
+                    ]
+                ]);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    $rawText = $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
+
+                    // Clean JSON string (strip markdown code block syntax if present like ```json ... ```)
+                    $rawText = preg_replace('/^```(?:json)?/i', '', trim($rawText));
+                    $rawText = preg_replace('/```$/', '', trim($rawText));
+
+                    $json = json_decode(trim($rawText), true);
+
+                    if (is_array($json)) {
+                        return [
+                            'firma'    => e(strip_tags($json['firma'] ?? '')),
+                            'email'    => e(strip_tags($json['email'] ?? '')),
+                            'direktor' => e(strip_tags($json['direktor'] ?? '')),
+                            'secteur'  => e(strip_tags($json['secteur'] ?? '')),
+                        ];
+                    }
+                }
+
+                Log::error("Gemini Company Search failed with status {$response->status()}: " . $response->body());
+            } catch (\Exception $e) {
+                Log::error("Gemini Company Search Exception: " . $e->getMessage());
+            }
+        }
+
+        // Fallback search extractor when API key is unavailable or fails
+        return $this->fallbackSearchCompanyData($cleanInput);
+    }
+
+    /**
+     * Fallback heuristic search parser (testing / offline mode).
+     */
+    protected function fallbackSearchCompanyData(string $input): array
+    {
+        // Check if input is or contains URL
+        $domain = '';
+        if (preg_match('/https?:\/\/(?:www\.)?([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i', $input, $matches)) {
+            $domain = $matches[1];
+        } elseif (preg_match('/(?:www\.)?([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i', $input, $matches)) {
+            $domain = $matches[1];
+        }
+
+        // Extract Email if present, or build plausible email from domain/name
+        $email = '';
+        if (preg_match('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', $input, $matches)) {
+            $email = $matches[0];
+        }
+
+        // Determine company name
+        $firma = '';
+        if (!empty($domain)) {
+            $baseName = explode('.', $domain)[0];
+            $firma = ucwords(str_replace(['-', '_'], ' ', $baseName)) . ' GmbH';
+            if (empty($email)) {
+                $email = 'bewerbung@' . strtolower($domain);
+            }
+        } else {
+            // Check if input is short company name or full text
+            if (strlen($input) < 60) {
+                $firma = trim($input);
+                if (!str_contains(strtolower($firma), 'gmbh') && !str_contains(strtolower($firma), 'ag')) {
+                    $firma .= ' GmbH';
+                }
+                $slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', explode(' ', $input)[0]));
+                if (empty($email) && !empty($slug)) {
+                    $email = 'bewerbung@' . $slug . '.de';
+                }
+            } else {
+                return $this->fallbackExtractJobData($input);
+            }
+        }
+
+        // Director
+        $direktor = 'Personalabteilung';
+        if (preg_match('/(?:Herr|Frau)\s+([A-Z][a-zäöüß]+(?:\s+[A-Z][a-zäöüß]+)?)/u', $input, $matches)) {
+            $direktor = trim($matches[0]);
+        }
+
+        // Sector
+        $secteur = 'IT & Technology';
+        if (preg_match('/(Automotive|Software|Beratung|Finanzen|Medizin|E-Commerce|Marketing|Ingenieurwesen|Industrie)/i', $input, $matches)) {
+            $secteur = ucfirst(strtolower($matches[0]));
+        }
+
+        return [
+            'firma'    => e(strip_tags($firma)),
+            'email'    => e(strip_tags($email ?: 'info@company.de')),
+            'direktor' => e(strip_tags($direktor)),
+            'secteur'  => e(strip_tags($secteur)),
+        ];
+    }
 }
+

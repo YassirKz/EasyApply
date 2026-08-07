@@ -410,4 +410,39 @@ class EntrepriseController extends Controller
         }
     }
 
+    /**
+     * Search and extract company data from any input (Name, URL, Job Offer Text) using Gemini AI.
+     * Validates input (min 2 chars), calls GeminiService::searchCompanyData(), returns JSON.
+     * Route: POST /entreprises/search (auth + CSRF protected).
+     */
+    public function searchAI(Request $request, GeminiService $geminiService)
+    {
+        $validated = $request->validate([
+            'search_input' => 'required|string|min:2',
+        ], [
+            'search_input.required' => 'Veuillez saisir un nom, une URL ou un texte.',
+            'search_input.min'      => 'La recherche doit contenir au moins 2 caractères.',
+        ]);
+
+        try {
+            $extracted = $geminiService->searchCompanyData($validated['search_input']);
+
+            return response()->json([
+                'success'  => true,
+                'firma'    => $extracted['firma'] ?? '',
+                'email'    => $extracted['email'] ?? '',
+                'direktor' => $extracted['direktor'] ?? '',
+                'secteur'  => $extracted['secteur'] ?? '',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('searchAI failed: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'La recherche par IA a échoué. Veuillez réessayer ou remplir les champs manuellement.',
+            ], 500);
+        }
+    }
+
 }
+

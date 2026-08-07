@@ -602,4 +602,73 @@ class EntrepriseControllerTest extends TestCase
         $this->assertStringNotContainsString('<script>', $data['direktor'] ?? '');
         $this->assertStringNotContainsString('<script>', $data['secteur'] ?? '');
     }
+
+    // ==================================================================
+    // SEARCH AI (UNIFIED COMPANY / URL / JOB OFFER SEARCH)
+    // ==================================================================
+
+    public function test_search_ai_redirects_guest(): void
+    {
+        $this->postJson(route('entreprises.search'), ['search_input' => 'BMW'])
+             ->assertUnauthorized();
+    }
+
+    public function test_search_ai_requires_search_input(): void
+    {
+        $this->actingAs($this->user)
+             ->postJson(route('entreprises.search'), [])
+             ->assertUnprocessable()
+             ->assertJsonValidationErrors(['search_input']);
+    }
+
+    public function test_search_ai_rejects_single_character_input(): void
+    {
+        $this->actingAs($this->user)
+             ->postJson(route('entreprises.search'), ['search_input' => 'a'])
+             ->assertUnprocessable()
+             ->assertJsonValidationErrors(['search_input']);
+    }
+
+    public function test_search_ai_handles_company_name(): void
+    {
+        $response = $this->actingAs($this->user)
+                         ->postJson(route('entreprises.search'), ['search_input' => 'Siemens AG']);
+
+        $response->assertOk()
+                 ->assertJsonStructure(['success', 'firma', 'email', 'direktor', 'secteur']);
+
+        $data = $response->json();
+        $this->assertTrue($data['success']);
+        $this->assertNotEmpty($data['firma']);
+        $this->assertNotEmpty($data['email']);
+    }
+
+    public function test_search_ai_handles_url_input(): void
+    {
+        $response = $this->actingAs($this->user)
+                         ->postJson(route('entreprises.search'), ['search_input' => 'https://www.bosch.de']);
+
+        $response->assertOk()
+                 ->assertJsonStructure(['success', 'firma', 'email', 'direktor', 'secteur']);
+
+        $data = $response->json();
+        $this->assertTrue($data['success']);
+        $this->assertStringContainsString('Bosch', $data['firma']);
+        $this->assertStringContainsString('bosch.de', $data['email']);
+    }
+
+    public function test_search_ai_sanitizes_output(): void
+    {
+        $response = $this->actingAs($this->user)
+                         ->postJson(route('entreprises.search'), ['search_input' => '<script>alert("xss")</script> SAP']);
+
+        $response->assertOk();
+        $data = $response->json();
+
+        $this->assertStringNotContainsString('<script>', $data['firma'] ?? '');
+        $this->assertStringNotContainsString('<script>', $data['email'] ?? '');
+        $this->assertStringNotContainsString('<script>', $data['direktor'] ?? '');
+        $this->assertStringNotContainsString('<script>', $data['secteur'] ?? '');
+    }
 }
+

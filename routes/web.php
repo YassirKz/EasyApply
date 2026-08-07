@@ -28,6 +28,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/entreprises/gemini-all', [EntrepriseController::class, 'generateAiAll'])->name('entreprises.geminiAll');
     Route::post('/entreprises/{entreprise}/gemini', [EntrepriseController::class, 'generateAi'])->name('entreprises.gemini');
     Route::post('/entreprises/extract-ia', [EntrepriseController::class, 'extractFromText'])->name('entreprises.extractIa');
+    Route::post('/entreprises/search', [EntrepriseController::class, 'searchAI'])->name('entreprises.search');
 
 
 
