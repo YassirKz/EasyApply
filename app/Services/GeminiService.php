@@ -136,10 +136,12 @@ class GeminiService
 
                     if (is_array($json)) {
                         return [
-                            'firma'    => e(strip_tags($json['firma'] ?? '')),
-                            'email'    => e(strip_tags($json['email'] ?? '')),
-                            'direktor' => e(strip_tags($json['direktor'] ?? '')),
-                            'secteur'  => e(strip_tags($json['secteur'] ?? '')),
+                            'firma'    => trim(htmlspecialchars_decode(strip_tags($json['firma'] ?? ''), ENT_QUOTES)),
+                            'email'    => trim(htmlspecialchars_decode(strip_tags($json['email'] ?? ''), ENT_QUOTES)),
+                            'direktor' => trim(htmlspecialchars_decode(strip_tags($json['direktor'] ?? ''), ENT_QUOTES)),
+                            'secteur'  => trim(htmlspecialchars_decode(strip_tags($json['secteur'] ?? ''), ENT_QUOTES)),
+                            // Support phone number if the model provides one (key can be 'telefon' or 'telephone')
+                            'telefon'  => trim(htmlspecialchars_decode(strip_tags($json['telefon'] ?? $json['telephone'] ?? ''), ENT_QUOTES)),
                         ];
                     }
                 }
@@ -165,6 +167,12 @@ class GeminiService
             $email = $matches[0];
         }
 
+        // Extract Telefon (simple international-friendly pattern)
+        $telefon = '';
+        if (preg_match('/(\+?\d[\d\s\/\-\(\)]{5,}\d)/', $text, $pm)) {
+            $telefon = trim($pm[0]);
+        }
+
         // Extract Company Name (looks for GmbH, AG, SE, KG, Inc, UG or capitalized company names)
         $firma = '';
         if (preg_match('/(?:bei|von|für|Unternehmen|Firma|Arbeitgeber)\s+([A-Z0-9\&\s\-\_]{3,30}(?:GmbH|AG|SE|KG|UG|Inc)?)/u', $text, $matches)) {
@@ -184,17 +192,37 @@ class GeminiService
         }
 
         // Extract Director / Ansprechpartner
-    
+        $direktor = 'nicht genannt';
+        if (preg_match('/(?:Herr|Frau)\s+([A-Z][a-zäöüß]+(?:\s+[A-Z][a-zäöüß]+)?)/u', $text, $matches)) {
+            $direktor = trim($matches[0]);
+        }
+
+        // Extract Sector
+        $secteur = 'IT & Softwareentwicklung';
+        $sectorPatterns = [
+            'Automotive' => '/(Automotive|Fahrzeugbau|Automobil|E-Mobility)/i',
+            'Softwareentwicklung' => '/(Software|IT-Dienstleistung|Digitalisierung|Cloud|SaaS|Webentwicklung)/i',
+            'Maschinenbau & Industrie' => '/(Maschinenbau|Industrie|Fertigung|Automation|Elektrotechnik)/i',
+            'Beratung & Consulting' => '/(Beratung|Consulting|Unternehmensberatung)/i',
+            'Finanzen & Banken' => '/(Finanz|Bank|Insurance|Versicherung|Fintech)/i',
+            'E-Commerce & Handel' => '/(E-Commerce|Handel|Retail|Shop)/i',
+            'Gesundheitswesen & Medizin' => '/(Medizin|Pharma|Gesundheit|Healthcare)/i',
+            'Logistik & Transport' => '/(Logistik|Transport|Supply Chain)/i',
+        ];
+
+        foreach ($sectorPatterns as $sectorName => $pattern) {
+            if (preg_match($pattern, $text)) {
                 $secteur = $sectorName;
                 break;
             }
         }
 
         return [
-            'firma'    => e(strip_tags($firma)),
-            'email'    => e(strip_tags($email ?: 'info@company.de')),
-            'direktor' => e(strip_tags($direktor)),
-            'secteur'  => e(strip_tags($secteur)),
+            'firma'    => trim(htmlspecialchars_decode(strip_tags($firma), ENT_QUOTES)),
+            'email'    => trim(htmlspecialchars_decode(strip_tags($email ?: 'info@company.de'), ENT_QUOTES)),
+            'direktor' => trim(htmlspecialchars_decode(strip_tags($direktor), ENT_QUOTES)),
+            'secteur'  => trim(htmlspecialchars_decode(strip_tags($secteur), ENT_QUOTES)),
+            'telefon'  => trim(htmlspecialchars_decode(strip_tags($telefon), ENT_QUOTES)),
         ];
     }
 }

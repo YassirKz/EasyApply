@@ -279,7 +279,7 @@
                                     </td>
                                     <td class="py-4 px-6">
                                         <span class="inline-block px-2.5 py-1 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-xs font-semibold rounded-lg border border-stone-200/80 dark:border-stone-700/80">
-                                            {{ $entreprise->secteur ?? 'Non spécifié' }}
+                                            {{ htmlspecialchars_decode($entreprise->secteur ?? 'Non spécifié', ENT_QUOTES) }}
                                         </span>
                                     </td>
                                     <td class="py-4 px-6 max-w-xs">
@@ -487,7 +487,7 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">Téléphone</label>
-                                <input type="text" name="telephone" id="add-telephone" placeholder="+49..." class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white">
+                                <input type="text" name="telephone" id="add-telephone" placeholder="+49..." x-model="addForm.telephone" class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white" :class="{ 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/20': addForm.telephone }">
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">Secteur</label>
@@ -704,12 +704,29 @@
                             body: JSON.stringify({ texte_offre: this.texteOffre })
                         });
                         const data = await resp.json();
+                        // helper: decode HTML entities returned by server (if any)
+                        const decodeHtml = (s) => {
+                            try {
+                                const t = document.createElement('textarea');
+                                t.innerHTML = s || '';
+                                return t.value;
+                            } catch (e) { return s || ''; }
+                        };
+
                         if (data.success) {
-                            if (data.firma)   this.addForm.nom       = data.firma;
-                            if (data.email)   this.addForm.email     = data.email;
-                            if (data.direktor && data.direktor !== 'nicht genannt')
-                                              this.addForm.directeur = data.direktor;
-                            if (data.secteur) this.addForm.secteur   = data.secteur;
+                            if (data.firma)   this.addForm.nom       = decodeHtml(data.firma);
+                            if (data.email)   this.addForm.email     = decodeHtml(data.email);
+                            // Fill directeur: prefer returned value, otherwise set a sensible default
+                            const returnedDirecteur = (data.direktor || '').trim();
+                            if (returnedDirecteur && returnedDirecteur.toLowerCase() !== 'nicht genannt' && returnedDirecteur.toLowerCase() !== 'personalabteilung') {
+                                if (!this.addForm.directeur) this.addForm.directeur = decodeHtml(returnedDirecteur);
+                            } else {
+                                // If IA didn't provide a name, auto-fill with French default (won't overwrite user input)
+                                if (!this.addForm.directeur) this.addForm.directeur = 'Responsable Recrutement';
+                            }
+                            // Fill telephone if provided by AI
+                            if (data.telefon)  this.addForm.telephone = decodeHtml(data.telefon);
+                            if (data.secteur)  this.addForm.secteur   = decodeHtml(data.secteur);
                         } else {
                             this.extractError = data.message || 'Erreur lors de extraction.';
                         }

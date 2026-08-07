@@ -75,12 +75,12 @@ class EntrepriseController extends Controller
             'texte_personnalise' => 'nullable|string',
         ]);
 
-        // Security cleaning (strip_tags/e)
-        $validated['nom'] = e(strip_tags($validated['nom']));
-        $validated['directeur'] = e(strip_tags($validated['directeur']));
-        if (isset($validated['telephone'])) $validated['telephone'] = e(strip_tags($validated['telephone']));
-        if (isset($validated['secteur'])) $validated['secteur'] = e(strip_tags($validated['secteur']));
-        if (isset($validated['texte_personnalise'])) $validated['texte_personnalise'] = e(strip_tags($validated['texte_personnalise']));
+        // Security cleaning: strip tags and trim (Blade will escape on output)
+        $validated['nom'] = strip_tags(trim($validated['nom']));
+        $validated['directeur'] = strip_tags(trim($validated['directeur']));
+        if (isset($validated['telephone'])) $validated['telephone'] = strip_tags(trim($validated['telephone']));
+        if (isset($validated['secteur'])) $validated['secteur'] = strip_tags(trim($validated['secteur']));
+        if (isset($validated['texte_personnalise'])) $validated['texte_personnalise'] = strip_tags(trim($validated['texte_personnalise']));
 
         Entreprise::create($validated);
 
@@ -101,11 +101,11 @@ class EntrepriseController extends Controller
             'texte_personnalise' => 'nullable|string',
         ]);
 
-        $validated['nom'] = e(strip_tags($validated['nom']));
-        $validated['directeur'] = e(strip_tags($validated['directeur']));
-        if (isset($validated['telephone'])) $validated['telephone'] = e(strip_tags($validated['telephone']));
-        if (isset($validated['secteur'])) $validated['secteur'] = e(strip_tags($validated['secteur']));
-        if (isset($validated['texte_personnalise'])) $validated['texte_personnalise'] = e(strip_tags($validated['texte_personnalise']));
+        $validated['nom'] = strip_tags(trim($validated['nom']));
+        $validated['directeur'] = strip_tags(trim($validated['directeur']));
+        if (isset($validated['telephone'])) $validated['telephone'] = strip_tags(trim($validated['telephone']));
+        if (isset($validated['secteur'])) $validated['secteur'] = strip_tags(trim($validated['secteur']));
+        if (isset($validated['texte_personnalise'])) $validated['texte_personnalise'] = strip_tags(trim($validated['texte_personnalise']));
 
         $entreprise->update($validated);
 
@@ -193,9 +193,16 @@ class EntrepriseController extends Controller
     {
         // Prevent PHP execution timeout for bulk HTTP API calls
         set_time_limit(300);
+        // Only process entreprises that do not yet have a generated text
+        $entreprises = Entreprise::whereNull('texte_personnalise')
+            ->orWhere('texte_personnalise', '')
+            ->get();
 
-        $entreprises = Entreprise::all();
         $count = 0;
+
+        if ($entreprises->isEmpty()) {
+            return redirect()->route('entreprises.index')->with('info', 'Aucune entreprise à générer : tous les enregistrements ont déjà un texte IA.');
+        }
 
         foreach ($entreprises as $entreprise) {
             $aiText = $geminiService->generatePersonalizedText(
@@ -204,11 +211,13 @@ class EntrepriseController extends Controller
                 $entreprise->directeur
             );
 
-            $entreprise->update([
-                'texte_personnalise' => $aiText
-            ]);
-
-            $count++;
+            // Only update if we received non-empty text
+            if (!empty($aiText)) {
+                $entreprise->update([
+                    'texte_personnalise' => $aiText
+                ]);
+                $count++;
+            }
         }
 
         return redirect()->route('entreprises.index')->with('success', "Textes IA générés avec succès pour les {$count} entreprise(s) !");
@@ -344,11 +353,11 @@ class EntrepriseController extends Controller
                 $directeur = 'Responsable Recrutement';
             }
 
-            // Clean inputs (XSS security)
-            $nom = e(strip_tags($nom));
-            $directeur = e(strip_tags($directeur));
-            $telephone = e(strip_tags($telephone));
-            $secteur = e(strip_tags($secteur));
+            // Clean inputs (XSS security) — keep raw cleaned values in DB (Blade will escape on output)
+            $nom = strip_tags(trim($nom));
+            $directeur = strip_tags(trim($directeur));
+            $telephone = strip_tags(trim($telephone));
+            $secteur = strip_tags(trim($secteur));
 
             // Upsert option A
             $existing = Entreprise::where('email', $email)->first();
@@ -399,6 +408,7 @@ class EntrepriseController extends Controller
                 'email'    => $extracted['email'] ?? '',
                 'direktor' => $extracted['direktor'] ?? '',
                 'secteur'  => $extracted['secteur'] ?? '',
+                'telefon'  => $extracted['telefon'] ?? '',
             ]);
         } catch (\Exception $e) {
             Log::error('extractFromText failed: ' . $e->getMessage());

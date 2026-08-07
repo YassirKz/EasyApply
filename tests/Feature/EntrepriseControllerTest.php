@@ -604,35 +604,37 @@ class EntrepriseControllerTest extends TestCase
     }
 
     // ==================================================================
-    // SEARCH AI (UNIFIED COMPANY / URL / JOB OFFER SEARCH)
+    // SEARCH (now: EXTRACT FROM TEXT) — only accepts job offer text
     // ==================================================================
 
-    public function test_search_ai_redirects_guest(): void
+    public function test_search_via_extract_redirects_guest(): void
     {
-        $this->postJson(route('entreprises.search'), ['search_input' => 'BMW'])
+        $this->postJson(route('entreprises.extractIa'), ['texte_offre' => str_repeat('a', 30)])
              ->assertUnauthorized();
     }
 
-    public function test_search_ai_requires_search_input(): void
+    public function test_search_via_extract_requires_texte_offre(): void
     {
         $this->actingAs($this->user)
-             ->postJson(route('entreprises.search'), [])
+             ->postJson(route('entreprises.extractIa'), [])
              ->assertUnprocessable()
-             ->assertJsonValidationErrors(['search_input']);
+             ->assertJsonValidationErrors(['texte_offre']);
     }
 
-    public function test_search_ai_rejects_single_character_input(): void
+    public function test_search_via_extract_rejects_short_text(): void
     {
         $this->actingAs($this->user)
-             ->postJson(route('entreprises.search'), ['search_input' => 'a'])
+             ->postJson(route('entreprises.extractIa'), ['texte_offre' => 'a'])
              ->assertUnprocessable()
-             ->assertJsonValidationErrors(['search_input']);
+             ->assertJsonValidationErrors(['texte_offre']);
     }
 
-    public function test_search_ai_handles_company_name(): void
+    public function test_search_via_extract_handles_job_offer_containing_company_name(): void
     {
+        $offerText = 'Stellenanzeige: Wir suchen Entwickler bei Siemens AG. Bewerbungen an karriere@siemens.de. Ansprechpartner: Herr Schmidt. Branche: Industrie.';
+
         $response = $this->actingAs($this->user)
-                         ->postJson(route('entreprises.search'), ['search_input' => 'Siemens AG']);
+                         ->postJson(route('entreprises.extractIa'), ['texte_offre' => $offerText]);
 
         $response->assertOk()
                  ->assertJsonStructure(['success', 'firma', 'email', 'direktor', 'secteur']);
@@ -643,24 +645,28 @@ class EntrepriseControllerTest extends TestCase
         $this->assertNotEmpty($data['email']);
     }
 
-    public function test_search_ai_handles_url_input(): void
+    public function test_search_via_extract_handles_job_offer_containing_url(): void
     {
+        $offerText = 'Offerte: Mehr Infos auf https://www.bosch.de — bitte bewerben an kontakt@bosch.de. Ansprechpartner: Frau Becker. Branche: Automotive.';
+
         $response = $this->actingAs($this->user)
-                         ->postJson(route('entreprises.search'), ['search_input' => 'https://www.bosch.de']);
+                         ->postJson(route('entreprises.extractIa'), ['texte_offre' => $offerText]);
 
         $response->assertOk()
                  ->assertJsonStructure(['success', 'firma', 'email', 'direktor', 'secteur']);
 
         $data = $response->json();
         $this->assertTrue($data['success']);
-        $this->assertStringContainsString('Bosch', $data['firma']);
-        $this->assertStringContainsString('bosch.de', $data['email']);
+        $this->assertStringContainsString('Bosch', $data['firma'] ?? '');
+        $this->assertStringContainsString('bosch', $data['email'] ?? '');
     }
 
-    public function test_search_ai_sanitizes_output(): void
+    public function test_search_via_extract_sanitizes_output(): void
     {
+        $offerText = '<script>alert("xss")</script> Wir suchen bei SAP GmbH. Bewerbungen an hr@sap.de';
+
         $response = $this->actingAs($this->user)
-                         ->postJson(route('entreprises.search'), ['search_input' => '<script>alert("xss")</script> SAP']);
+                         ->postJson(route('entreprises.extractIa'), ['texte_offre' => $offerText]);
 
         $response->assertOk();
         $data = $response->json();
