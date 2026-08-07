@@ -404,7 +404,7 @@
                             </span>
                         </div>
                         <p class="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
-                            Saisissez un <strong>nom d'entreprise</strong> (ex: <em>BMW</em>), une <strong>URL</strong> (ex: <em>https://bmw.de</em>) ou un <strong>texte d'offre d'emploi</strong>. L'IA complètera automatiquement le formulaire.
+                            Saisissez un <strong>texte d'offre d'emploi</strong>. L'IA complètera automatiquement le formulaire.
                         </p>
 
                         <div class="space-y-2">
@@ -412,7 +412,7 @@
                                 id="ai-search-input"
                                 x-model="searchInput"
                                 rows="3"
-                                placeholder="Nom (ex: BMW), URL (ex: https://www.bmw.de) ou texte d'offre d'emploi..."
+                                placeholder="Texte d'offre d'emploi..."
                                 :disabled="searching"
                                 class="w-full text-xs bg-white dark:bg-stone-900 border border-amber-300 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white placeholder-stone-400 resize-none transition"
                             ></textarea>
@@ -429,7 +429,7 @@
                                 id="btn-search-ia"
                                 type="button"
                                 @click="searchIa()"
-                                :disabled="searching || searchInput.trim().length < 2"
+                                :disabled="searching || searchInput.trim().length < 20"
                                 class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-800 via-amber-700 to-yellow-700 hover:from-amber-700 hover:to-yellow-600 disabled:from-stone-400 disabled:to-stone-400 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-md transition duration-150"
                             >
                                 <svg x-show="searching" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -669,34 +669,18 @@
                 },
 
                 async searchIa() {
-                    if (this.searchInput.trim().length < 2) {
-                        this.searchError = 'Veuillez saisir au moins 2 caractères (nom, URL ou texte).';
+                    if (this.searchInput.trim().length < 20) {
+                        this.searchError = 'Veuillez saisir au moins 20 caractères du texte d\'offre.';
                         return;
                     }
+                    // Reuse extractIa flow: copy input into texteOffre and call extractor
+                    this.texteOffre = this.searchInput;
                     this.searching = true;
                     this.searchError = null;
                     try {
-                        const resp = await fetch('{{ route("entreprises.search") }}', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                                'Accept': 'application/json',
-                            },
-                            body: JSON.stringify({ search_input: this.searchInput })
-                        });
-                        const data = await resp.json();
-                        if (data.success) {
-                            if (data.firma)   this.addForm.nom       = data.firma;
-                            if (data.email)   this.addForm.email     = data.email;
-                            if (data.direktor && data.direktor !== 'nicht genannt')
-                                              this.addForm.directeur = data.direktor;
-                            if (data.secteur) this.addForm.secteur   = data.secteur;
-                        } else {
-                            this.searchError = data.message || 'Erreur lors de la recherche IA.';
-                        }
+                        await this.extractIa();
                     } catch (e) {
-                        this.searchError = 'Erreur réseau. Vérifiez votre connexion et réessayez.';
+                        this.searchError = this.searchError || 'Erreur lors de la recherche IA.';
                     } finally {
                         this.searching = false;
                     }
