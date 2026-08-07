@@ -16,6 +16,7 @@ class Entreprise extends Model
         'telephone',
         'secteur',
         'texte_personnalise',
+        'offre_texte',
         'est_envoye',
         'date_envoi',
         'programmation_envoi',

@@ -61,6 +61,43 @@
             selectedIds: [], 
             pageIds: {{ json_encode($entreprises->pluck('id')) }},
             _companiesCache: {},
+            // --- AI Extraction State ---
+            texteOffre: '',
+            extracting: false,
+            extractError: null,
+            addForm: { nom: '', email: '', directeur: '', secteur: '' },
+            async extractIa() {
+                if (this.texteOffre.trim().length < 20) {
+                    this.extractError = 'Veuillez saisir au moins 20 caractères de texte d\'offre.';
+                    return;
+                }
+                this.extracting = true;
+                this.extractError = null;
+                try {
+                    const resp = await fetch('{{ route("entreprises.extractIa") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({ texte_offre: this.texteOffre })
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        if (data.firma) this.addForm.nom = data.firma;
+                        if (data.email) this.addForm.email = data.email;
+                        if (data.direktor && data.direktor !== 'nicht genannt') this.addForm.directeur = data.direktor;
+                        if (data.secteur) this.addForm.secteur = data.secteur;
+                    } else {
+                        this.extractError = data.message || 'Erreur lors de l\'extraction.';
+                    }
+                } catch (e) {
+                    this.extractError = 'Erreur réseau. Vérifiez votre connexion et réessayez.';
+                } finally {
+                    this.extracting = false;
+                }
+            },
             toggleSelectAll(e) {
                 if (e.target.checked) {
                     this.selectedIds = [...this.pageIds];
@@ -391,47 +428,133 @@
         </div>
 
         <!-- ➕ ADD COMPANY MODAL -->
-        <div x-show="addModal" x-cloak class="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div @click.away="addModal = false" class="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 border border-stone-200 dark:border-stone-800">
+        <div x-show="addModal" x-cloak
+             x-init="$watch('addModal', v => { if (v) { texteOffre=''; extractError=null; addForm={nom:'',email:'',directeur:'',secteur:''}; } })"
+             class="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div @click.away="addModal = false"
+                 class="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-xl w-full p-6 space-y-4 border border-stone-200 dark:border-stone-800 max-h-[92vh] overflow-y-auto">
+
+                <!-- Modal Header -->
                 <div class="flex justify-between items-center border-b border-stone-100 dark:border-stone-800 pb-4">
                     <h3 class="font-extrabold text-lg text-stone-900 dark:text-white flex items-center gap-2">
                         <span>🏢</span> Ajouter une Entreprise
                     </h3>
                     <button @click="addModal = false" class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 font-bold text-xl leading-none">&times;</button>
                 </div>
+
+                <!-- 🤖 AI EXTRACTION ZONE -->
+                <div class="bg-gradient-to-br from-amber-50/80 to-yellow-50/60 dark:from-stone-800/80 dark:to-stone-800/60 border border-amber-200/80 dark:border-stone-700 rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-lg">🤖</span>
+                        <span class="font-bold text-sm text-amber-900 dark:text-amber-300">Extraction automatique depuis une offre d'emploi</span>
+                    </div>
+                    <p class="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+                        Collez le texte d'une annonce d'emploi ci-dessous et cliquez sur <strong>"Extraire avec l'IA"</strong>. Les champs seront remplis automatiquement.
+                    </p>
+
+                    <!-- Job offer textarea -->
+                    <textarea
+                        id="texte-offre-input"
+                        x-model="texteOffre"
+                        rows="4"
+                        placeholder="Collez ici le texte de l'offre d'emploi en allemand (Stellenanzeige)..."
+                        :disabled="extracting"
+                        class="w-full text-xs bg-white dark:bg-stone-900 border border-amber-200 dark:border-stone-600 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-800 dark:text-stone-200 placeholder-stone-400 resize-none transition"
+                    ></textarea>
+
+                    <!-- Error message -->
+                    <div x-show="extractError" x-cloak
+                         class="flex items-start gap-2 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 font-medium">
+                        <span class="shrink-0 mt-0.5">⚠️</span>
+                        <span x-text="extractError"></span>
+                    </div>
+
+                    <!-- Extract Button -->
+                    <button
+                        id="btn-extract-ia"
+                        type="button"
+                        @click="extractIa()"
+                        :disabled="extracting || texteOffre.trim().length < 20"
+                        class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-800 via-amber-700 to-yellow-700 hover:from-amber-700 hover:to-yellow-600 disabled:from-stone-400 disabled:to-stone-400 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl shadow-md transition duration-150"
+                    >
+                        <!-- Spinner (shown during loading) -->
+                        <svg x-show="extracting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        </svg>
+                        <span x-show="!extracting">🤖 Extraire avec l'IA</span>
+                        <span x-show="extracting" x-cloak>Analyse en cours…</span>
+                    </button>
+                </div>
+
+                <!-- MAIN FORM -->
                 <form action="{{ route('entreprises.store') }}" method="POST" class="space-y-4">
                     @csrf
+
+                    <!-- Company name (with x-model binding for autofill) -->
                     <div>
                         <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">Nom de l'entreprise *</label>
-                        <input type="text" name="nom" required placeholder="ex: Bosch GmbH" class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white">
+                        <input
+                            type="text" name="nom" id="add-nom" required
+                            x-model="addForm.nom"
+                            placeholder="ex: Bosch GmbH"
+                            class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white transition"
+                            :class="{ 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/20': addForm.nom }"
+                        >
                     </div>
+
+                    <!-- Email + Director row -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">Email Destinataire *</label>
-                            <input type="email" name="email" required placeholder="karriere@bosch.de" class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white">
+                            <input
+                                type="email" name="email" id="add-email" required
+                                x-model="addForm.email"
+                                placeholder="karriere@bosch.de"
+                                class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white transition"
+                                :class="{ 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/20': addForm.email }"
+                            >
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">Nom RH / Directeur *</label>
-                            <input type="text" name="directeur" required placeholder="ex: Herr Schmidt" class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white">
+                            <input
+                                type="text" name="directeur" id="add-directeur" required
+                                x-model="addForm.directeur"
+                                placeholder="ex: Herr Schmidt"
+                                class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white transition"
+                                :class="{ 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/20': addForm.directeur }"
+                            >
                         </div>
                     </div>
+
+                    <!-- Phone + Sector row -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">Téléphone</label>
-                            <input type="text" name="telephone" placeholder="+49..." class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white">
+                            <input type="text" name="telephone" id="add-telephone" placeholder="+49..." class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">Secteur</label>
-                            <input type="text" name="secteur" placeholder="ex: Automotive IT" class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white">
+                            <input
+                                type="text" name="secteur" id="add-secteur"
+                                x-model="addForm.secteur"
+                                placeholder="ex: Automotive IT"
+                                class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white transition"
+                                :class="{ 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/20': addForm.secteur }"
+                            >
                         </div>
                     </div>
+
+                    <!-- Personalized text -->
                     <div>
                         <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">Texte Personnalisé (Optionnel)</label>
-                        <textarea name="texte_personnalise" rows="3" placeholder="Saisissez un texte ou laissez Gemini IA le rédiger..." class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white"></textarea>
+                        <textarea name="texte_personnalise" id="add-texte" rows="3" placeholder="Saisissez un texte ou laissez Gemini IA le rédiger..." class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white"></textarea>
                     </div>
+
+                    <!-- Actions -->
                     <div class="flex justify-end gap-3 pt-4 border-t border-stone-100 dark:border-stone-800">
                         <button type="button" @click="addModal = false" class="px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-bold rounded-xl hover:bg-stone-200 transition">Annuler</button>
-                        <button type="submit" class="px-5 py-2 bg-amber-800 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md transition">Enregistrer</button>
+                        <button type="submit" class="px-5 py-2 bg-amber-800 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md transition">💾 Enregistrer</button>
                     </div>
                 </form>
             </div>

@@ -539,4 +539,67 @@ class EntrepriseControllerTest extends TestCase
             true  // test mode: skip is_uploaded_file() check
         );
     }
+
+    // ==================================================================
+    // EXTRACT FROM TEXT (AI EXTRACTION)
+    // ==================================================================
+
+    public function test_extract_from_text_redirects_guest(): void
+    {
+        $this->postJson(route('entreprises.extractIa'), ['texte_offre' => str_repeat('a', 30)])
+             ->assertUnauthorized();
+    }
+
+    public function test_extract_from_text_requires_texte_offre(): void
+    {
+        $this->actingAs($this->user)
+             ->postJson(route('entreprises.extractIa'), [])
+             ->assertUnprocessable()
+             ->assertJsonValidationErrors(['texte_offre']);
+    }
+
+    public function test_extract_from_text_rejects_short_text(): void
+    {
+        $this->actingAs($this->user)
+             ->postJson(route('entreprises.extractIa'), ['texte_offre' => 'Kurz'])
+             ->assertUnprocessable()
+             ->assertJsonValidationErrors(['texte_offre']);
+    }
+
+    public function test_extract_from_text_returns_json_with_expected_keys(): void
+    {
+        // Uses fallback extractor (no real API key in test environment).
+        // A job offer text with email to trigger the email extractor.
+        $offerText = 'Wir suchen einen Entwickler bei BMW GmbH. '
+            . 'Bitte senden Sie Ihre Bewerbung an: bewerbung@bmw.de. '
+            . 'Ansprechpartnerin ist Frau Müller. Branche: Automotive.';
+
+        $response = $this->actingAs($this->user)
+                         ->postJson(route('entreprises.extractIa'), ['texte_offre' => $offerText]);
+
+        $response->assertOk()
+                 ->assertJsonStructure(['success', 'firma', 'email', 'direktor', 'secteur']);
+
+        $data = $response->json();
+        $this->assertTrue($data['success']);
+        $this->assertNotEmpty($data['firma']);
+        $this->assertNotEmpty($data['email']);
+    }
+
+    public function test_extract_from_text_sanitizes_output(): void
+    {
+        // The response values must not contain raw HTML tags (XSS protection).
+        $maliciousText = str_repeat('<script>alert(1)</script> BMW GmbH contact@bmw.de Automotive', 5);
+
+        $response = $this->actingAs($this->user)
+                         ->postJson(route('entreprises.extractIa'), ['texte_offre' => $maliciousText]);
+
+        $response->assertOk();
+        $data = $response->json();
+
+        $this->assertStringNotContainsString('<script>', $data['firma'] ?? '');
+        $this->assertStringNotContainsString('<script>', $data['email'] ?? '');
+        $this->assertStringNotContainsString('<script>', $data['direktor'] ?? '');
+        $this->assertStringNotContainsString('<script>', $data['secteur'] ?? '');
+    }
 }

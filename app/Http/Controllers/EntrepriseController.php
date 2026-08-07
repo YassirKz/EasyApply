@@ -376,4 +376,38 @@ class EntrepriseController extends Controller
         return redirect()->route('entreprises.index')->with('success', "Importation réussie : {$importedCount} nouvelle(s) entreprise(s) ajoutée(s), {$updatedCount} mise(s) à jour.");
     }
 
+    /**
+     * Extract company information from a job offer text using Gemini AI.
+     * Validates the input, calls GeminiService::extractJobData(), returns cleaned JSON.
+     * Route: POST /entreprises/extract-ia (auth + CSRF protected).
+     */
+    public function extractFromText(Request $request, GeminiService $geminiService)
+    {
+        $validated = $request->validate([
+            'texte_offre' => 'required|string|min:20',
+        ], [
+            'texte_offre.required' => 'Le texte de l\'offre est obligatoire.',
+            'texte_offre.min'      => 'Le texte de l\'offre doit contenir au moins 20 caractères.',
+        ]);
+
+        try {
+            $extracted = $geminiService->extractJobData($validated['texte_offre']);
+
+            return response()->json([
+                'success'  => true,
+                'firma'    => $extracted['firma'] ?? '',
+                'email'    => $extracted['email'] ?? '',
+                'direktor' => $extracted['direktor'] ?? '',
+                'secteur'  => $extracted['secteur'] ?? '',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('extractFromText failed: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'L\'extraction par IA a échoué. Veuillez réessayer ou remplir les champs manuellement.',
+            ], 500);
+        }
+    }
+
 }

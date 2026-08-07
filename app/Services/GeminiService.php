@@ -84,4 +84,122 @@ class GeminiService
         $index = abs(crc32($nomClean)) % count($patterns);
         return $patterns[$index];
     }
+
+    /**
+     * Extract structured company & contact information from a job offer text using Gemini AI.
+     * Returns an array with keys: firma, email, direktor, secteur.
+     */
+    public function extractJobData(string $jobOfferText): array
+    {
+        $cleanOffer = trim(htmlspecialchars_decode($jobOfferText, ENT_QUOTES));
+
+        if (!empty($this->apiKey) && $this->apiKey !== 'YOUR_GEMINI_API_KEY') {
+            $prompt = "Du bist ein Assistent für Bewerbungsmanagement. Analysiere den folgenden Text einer Stellenanzeige.\n\n"
+                . "Extrahiere daraus diese 4 Informationen:\n"
+                . "1. Firmenname (Name des Unternehmens)\n"
+                . "2. Kontakt-E-Mail (Bewerbungs-E-Mail oder generische Kontakt-E-Mail)\n"
+                . "3. Ansprechpartner (Name des Recruiters / Chefs, falls genannt, sonst \"nicht genannt\")\n"
+                . "4. Branche (Sektor, z.B. \"Automotive\", \"Software\", \"Beratung\")\n\n"
+                . "Gib die Antwort NUR als JSON-Objekt zurück, ohne Erklärungen.\n"
+                . "Format:\n"
+                . "{\n"
+                . "  \"firma\": \"...\",\n"
+                . "  \"email\": \"...\",\n"
+                . "  \"direktor\": \"...\",\n"
+                . "  \"secteur\": \"...\"\n"
+                . "}\n\n"
+                . "Text der Stellenanzeige:\n"
+                . $cleanOffer;
+
+            try {
+                $response = Http::timeout(10)->withHeaders([
+                    'Content-Type' => 'application/json',
+                ])->post($this->apiUrl, [
+                    'contents' => [
+                        [
+                            'parts' => [
+                                ['text' => $prompt]
+                            ]
+                        ]
+                    ]
+                ]);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    $rawText = $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
+
+                    // Clean JSON string (strip markdown code block syntax if present like ```json ... ```)
+                    $rawText = preg_replace('/^```(?:json)?/i', '', trim($rawText));
+                    $rawText = preg_replace('/```$/', '', trim($rawText));
+
+                    $json = json_decode(trim($rawText), true);
+
+                    if (is_array($json)) {
+                        return [
+                            'firma'    => e(strip_tags($json['firma'] ?? '')),
+                            'email'    => e(strip_tags($json['email'] ?? '')),
+                            'direktor' => e(strip_tags($json['direktor'] ?? '')),
+                            'secteur'  => e(strip_tags($json['secteur'] ?? '')),
+                        ];
+                    }
+                }
+
+                Log::error("Gemini Extraction failed with status {$response->status()}: " . $response->body());
+            } catch (\Exception $e) {
+                Log::error("Gemini Extraction Exception: " . $e->getMessage());
+            }
+        }
+
+        // Fallback RegEx & Heuristics Extractor when API Key is missing or unavailable
+        return $this->fallbackExtractJobData($cleanOffer);
+    }
+
+    /**
+     * Fallback heuristic parser for job offers (testing / offline mode).
+     */
+    protected function fallbackExtractJobData(string $text): array
+    {
+        // Extract Email
+        $email = '';
+        if (preg_match('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', $text, $matches)) {
+            $email = $matches[0];
+        }
+
+        // Extract Company Name (looks for GmbH, AG, SE, KG, Inc, UG or capitalized company names)
+        $firma = '';
+        if (preg_match('/(?:bei|von|für|Unternehmen|Firma|Arbeitgeber)\s+([A-Z0-9\&\s\-\_]{3,30}(?:GmbH|AG|SE|KG|UG|Inc)?)/u', $text, $matches)) {
+            $firma = trim($matches[1]);
+        } elseif (preg_match('/([A-Z0-9\&\s\-\_]{2,25}\s+(?:GmbH|AG|SE|KG|UG|Inc))/u', $text, $matches)) {
+            $firma = trim($matches[1]);
+        }
+
+        if (empty($firma)) {
+            if (!empty($email)) {
+                $parts = explode('@', $email);
+                $domain = explode('.', $parts[1] ?? '')[0] ?? 'Unternehmen';
+                $firma = ucwords(str_replace(['-', '_'], ' ', $domain)) . ' GmbH';
+            } else {
+                $firma = 'Unternehmen Allemand';
+            }
+        }
+
+        // Extract Director / Ansprechpartner
+        $direktor = 'nicht genannt';
+        if (preg_match('/(?:Herr|Frau)\s+([A-Z][a-zäöüß]+(?:\s+[A-Z][a-zäöüß]+)?)/u', $text, $matches)) {
+            $direktor = trim($matches[0]);
+        }
+
+        // Extract Sector
+        $secteur = 'IT & Softwareentwicklung';
+        if (preg_match('/(Automotive|Software|Beratung|Finanzen|Medizin|E-Commerce|Marketing|Ingenieurwesen|Industrie)/i', $text, $matches)) {
+            $secteur = ucfirst(strtolower($matches[0]));
+        }
+
+        return [
+            'firma'    => e(strip_tags($firma)),
+            'email'    => e(strip_tags($email)),
+            'direktor' => e(strip_tags($direktor)),
+            'secteur'  => e(strip_tags($secteur)),
+        ];
+    }
 }

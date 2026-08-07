@@ -27,6 +27,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/entreprises/import', [EntrepriseController::class, 'import'])->name('entreprises.import');
     Route::post('/entreprises/gemini-all', [EntrepriseController::class, 'generateAiAll'])->name('entreprises.geminiAll');
     Route::post('/entreprises/{entreprise}/gemini', [EntrepriseController::class, 'generateAi'])->name('entreprises.gemini');
+    Route::post('/entreprises/extract-ia', [EntrepriseController::class, 'extractFromText'])->name('entreprises.extractIa');
 
 
 
