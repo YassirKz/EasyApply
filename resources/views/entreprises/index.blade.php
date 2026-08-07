@@ -52,60 +52,7 @@
     </x-slot>
 
     <div class="py-8 min-h-screen" 
-         x-data="{ 
-            addModal: false, 
-            importModal: false, 
-            editModal: false, 
-            scheduleModal: false,
-            editCompany: {}, 
-            selectedIds: [], 
-            pageIds: {{ json_encode($entreprises->pluck('id')) }},
-            _companiesCache: {},
-            // --- AI Extraction State ---
-            texteOffre: '',
-            extracting: false,
-            extractError: null,
-            addForm: { nom: '', email: '', directeur: '', secteur: '' },
-            async extractIa() {
-                if (this.texteOffre.trim().length < 20) {
-                    this.extractError = 'Veuillez saisir au moins 20 caractères de texte d\'offre.';
-                    return;
-                }
-                this.extracting = true;
-                this.extractError = null;
-                try {
-                    const resp = await fetch('{{ route("entreprises.extractIa") }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                            'Accept': 'application/json',
-                        },
-                        body: JSON.stringify({ texte_offre: this.texteOffre })
-                    });
-                    const data = await resp.json();
-                    if (data.success) {
-                        if (data.firma) this.addForm.nom = data.firma;
-                        if (data.email) this.addForm.email = data.email;
-                        if (data.direktor && data.direktor !== 'nicht genannt') this.addForm.directeur = data.direktor;
-                        if (data.secteur) this.addForm.secteur = data.secteur;
-                    } else {
-                        this.extractError = data.message || 'Erreur lors de l\'extraction.';
-                    }
-                } catch (e) {
-                    this.extractError = 'Erreur réseau. Vérifiez votre connexion et réessayez.';
-                } finally {
-                    this.extracting = false;
-                }
-            },
-            toggleSelectAll(e) {
-                if (e.target.checked) {
-                    this.selectedIds = [...this.pageIds];
-                } else {
-                    this.selectedIds = [];
-                }
-            }
-         }"
+         x-data="entreprisesPage"
          @open-schedule-modal.window="scheduleModal = true">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
@@ -429,7 +376,6 @@
 
         <!-- ➕ ADD COMPANY MODAL -->
         <div x-show="addModal" x-cloak
-             x-init="$watch('addModal', v => { if (v) { texteOffre=''; extractError=null; addForm={nom:'',email:'',directeur:'',secteur:''}; } })"
              class="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
             <div @click.away="addModal = false"
                  class="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-xl w-full p-6 space-y-4 border border-stone-200 dark:border-stone-800 max-h-[92vh] overflow-y-auto">
@@ -671,6 +617,82 @@
 
     <!-- Gemini AI AJAX Script -->
     <script>
+        // ----------------------------------------------------------------
+        // Alpine.data component: entreprisesPage
+        // ----------------------------------------------------------------
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('entreprisesPage', () => ({
+                addModal: false,
+                importModal: false,
+                editModal: false,
+                scheduleModal: false,
+                editCompany: {},
+                selectedIds: [],
+                pageIds: {{ json_encode($entreprises->pluck('id')) }},
+                _companiesCache: {},
+
+                texteOffre: '',
+                extracting: false,
+                extractError: null,
+                addForm: { nom: '', email: '', directeur: '', secteur: '' },
+
+                init() {
+                    this.$watch('addModal', (v) => {
+                        if (v) {
+                            this.texteOffre = '';
+                            this.extractError = null;
+                            this.addForm = { nom: '', email: '', directeur: '', secteur: '' };
+                        }
+                    });
+                },
+
+                async extractIa() {
+                    if (this.texteOffre.trim().length < 20) {
+                        this.extractError = 'Veuillez saisir au moins 20 caractères de texte.';
+                        return;
+                    }
+                    this.extracting = true;
+                    this.extractError = null;
+                    try {
+                        const resp = await fetch('{{ route("entreprises.extractIa") }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                'Accept': 'application/json',
+                            },
+                            body: JSON.stringify({ texte_offre: this.texteOffre })
+                        });
+                        const data = await resp.json();
+                        if (data.success) {
+                            if (data.firma)   this.addForm.nom       = data.firma;
+                            if (data.email)   this.addForm.email     = data.email;
+                            if (data.direktor && data.direktor !== 'nicht genannt')
+                                              this.addForm.directeur = data.direktor;
+                            if (data.secteur) this.addForm.secteur   = data.secteur;
+                        } else {
+                            this.extractError = data.message || 'Erreur lors de extraction.';
+                        }
+                    } catch (e) {
+                        this.extractError = 'Erreur réseau. Vérifiez votre connexion.';
+                    } finally {
+                        this.extracting = false;
+                    }
+                },
+
+                toggleSelectAll(e) {
+                    if (e.target.checked) {
+                        this.selectedIds = [...this.pageIds];
+                    } else {
+                        this.selectedIds = [];
+                    }
+                }
+            }));
+        });
+
+        // ----------------------------------------------------------------
+        // Gemini AI Text Generation (per-row button)
+        // ----------------------------------------------------------------
         window._companiesCache = window._companiesCache || {};
 
         function generateGeminiText(entrepriseId, btn) {
