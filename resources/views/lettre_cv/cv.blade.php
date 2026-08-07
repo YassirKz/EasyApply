@@ -26,6 +26,69 @@
                 <span><strong>Garantie ATS Compliance :</strong> Votre CV utilise une mise en page 1 colonne, une typographie standardisée et des entêtes explicites en allemand. Il franchit à 100% les filtres ATS des logiciels de recrutement allemands (Personio, Workday, SAP SuccessFactors, Taleo).</span>
             </div>
 
+            <!-- 📁 Section: Documents Joints & Certificats (Anlagen) -->
+            <div class="bg-white dark:bg-stone-900 rounded-2xl shadow-sm border border-stone-200/80 dark:border-stone-800 p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-stone-100 dark:border-stone-800 pb-3">
+                    <h3 class="font-extrabold text-base text-stone-900 dark:text-white flex items-center gap-2">
+                        <span>📁</span> Documents Joints & Certificats (Anlagen / Diplômes)
+                    </h3>
+                    @if($hasDocuments)
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full border border-emerald-200 dark:border-emerald-800">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Document joint actif ({{ $documentsSizeFormatted }})
+                        </span>
+                    @else
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-xs font-bold rounded-full border border-stone-200 dark:border-stone-700">
+                            Aucun document joint
+                        </span>
+                    @endif
+                </div>
+
+                <p class="text-xs sm:text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
+                    Téléversez votre fichier PDF unique regroupant vos certificats, diplômes et attestations (<em>Anlagen</em>). Ce fichier sera <strong>automatiquement joint à toutes vos candidatures</strong> (en plus de votre CV) sous le nom <code>Anlagen_Yassir_Kezzi.pdf</code>.
+                </p>
+
+                @if($hasDocuments)
+                    <div class="flex flex-wrap items-center justify-between gap-3 p-4 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/50 rounded-xl">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">📑</span>
+                            <div>
+                                <p class="text-xs font-bold text-stone-900 dark:text-white">Anlagen_Yassir_Kezzi.pdf</p>
+                                <p class="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">Taille: {{ $documentsSizeFormatted }} · Fichier prêt pour l'envoi</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <a href="{{ route('cv.documents.download') }}" class="px-3.5 py-2 bg-stone-900 dark:bg-stone-700 hover:bg-stone-800 text-white font-bold text-xs rounded-xl shadow-sm transition duration-150 flex items-center gap-1.5">
+                                <span>📥 Télécharger</span>
+                            </a>
+                            <form action="{{ route('cv.documents.delete') }}" method="POST" onsubmit="return confirm('Supprimer le fichier de documents joint ?');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="px-3 py-2 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 dark:text-rose-400 font-bold text-xs rounded-xl border border-rose-200 dark:border-rose-900/60 transition">
+                                    🗑️ Supprimer
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                @endif
+
+                <form action="{{ route('cv.documents.upload') }}" method="POST" enctype="multipart/form-data" class="space-y-3 pt-2">
+                    @csrf
+                    <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
+                        {{ $hasDocuments ? 'Remplacer le fichier PDF de documents' : 'Téléverser un fichier PDF de documents (max 15 Mo)' }}
+                    </label>
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <input type="file" 
+                               name="document" 
+                               accept="application/pdf" 
+                               required
+                               class="flex-1 text-xs text-stone-500 dark:text-stone-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-800 hover:file:bg-amber-100 dark:file:bg-stone-800 dark:file:text-amber-400 border border-stone-200 dark:border-stone-700 rounded-xl p-1.5 cursor-pointer">
+                        <button type="submit" class="px-5 py-2.5 bg-amber-800 hover:bg-amber-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition duration-150 shrink-0 flex items-center justify-center gap-1.5">
+                            <span>📤 Téléverser PDF</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
             <form action="{{ route('cv.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                 @csrf
 

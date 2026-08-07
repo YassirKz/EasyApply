@@ -114,15 +114,43 @@ class EntrepriseControllerTest extends TestCase
                  ->assertViewHas('entreprises', fn ($p) => $p->total() === 3);
     }
 
-    public function test_index_pending_and_sent_counts_are_correct(): void
+    public function test_index_statut_filter_relance(): void
+    {
+        // 1 company sent 20 days ago (due for relance)
+        Entreprise::factory()->create([
+            'est_envoye' => true,
+            'date_envoi' => now()->subDays(20),
+        ]);
+
+        // 1 company sent 5 days ago (NOT due for relance)
+        Entreprise::factory()->create([
+            'est_envoye' => true,
+            'date_envoi' => now()->subDays(5),
+        ]);
+
+        // 1 pending company
+        Entreprise::factory()->create(['est_envoye' => false]);
+
+        $response = $this->actingAs($this->user)
+                         ->get(route('entreprises.index', ['statut' => 'relance']));
+
+        $response->assertOk()
+                 ->assertViewHas('entreprises', fn ($p) => $p->total() === 1);
+    }
+
+    public function test_index_pending_sent_and_relance_counts_are_correct(): void
     {
         Entreprise::factory()->count(4)->create();
-        Entreprise::factory()->envoye()->count(1)->create();
+        Entreprise::factory()->create([
+            'est_envoye' => true,
+            'date_envoi' => now()->subDays(16),
+        ]);
 
         $this->actingAs($this->user)
              ->get(route('entreprises.index'))
              ->assertViewHas('pendingCount', 4)
-             ->assertViewHas('sentCount', 1);
+             ->assertViewHas('sentCount', 1)
+             ->assertViewHas('relanceCount', 1);
     }
 
     // ==================================================================

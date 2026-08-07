@@ -274,4 +274,23 @@ class EnvoiControllerTest extends TestCase
             @unlink($mail->pdfPath);
         }
     }
+
+    public function test_candidature_mail_attaches_custom_documents_pdf_if_present(): void
+    {
+        $docsDir = storage_path('app/documents');
+        if (!file_exists($docsDir)) mkdir($docsDir, 0755, true);
+        file_put_contents($docsDir . '/anlagen.pdf', '%PDF-1.4 Custom Documents Content');
+
+        $e = Entreprise::factory()->create();
+        $mail = new CandidatureMail($e);
+
+        $attachments = $mail->attachments();
+        $this->assertCount(2, $attachments);
+
+        // Cleanup
+        @unlink($docsDir . '/anlagen.pdf');
+        if (file_exists($mail->pdfPath)) {
+            @unlink($mail->pdfPath);
+        }
+    }
 }

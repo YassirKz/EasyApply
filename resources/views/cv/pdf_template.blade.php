@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>CV - Yassir Kezzi</title>
+    <title>Lebenslauf - Yassir Kezzi</title>
     <style>
         @page {
             margin: 18mm 16mm 18mm 16mm;
@@ -110,7 +110,7 @@
                     <h1>Yassir Kezzi</h1>
                     <div class="subtitle">Junior Full-Stack Entwickler · Ausbildung Fachinformatiker</div>
                     <div class="contact-info">
-                        +212 682 486 661 &nbsp;|&nbsp; kezziyassir005@gmail.com &nbsp;|&nbsp; linkedin.com/in/yassir-kezzi/ &nbsp;|&nbsp; github.com/YassirKz
+                        +212 682 486 661 &nbsp;|&nbsp; kezziyassir005@gmail.com &nbsp;|&nbsp; linkedin.com/in/yassir-kezzi-530383283/ &nbsp;|&nbsp; github.com/YassirKz
                     </div>
                 </td>
                 @if($photoBase64)

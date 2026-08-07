@@ -36,6 +36,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/cv', [LettreCvController::class, 'editCv'])->name('cv.edit');
     Route::post('/cv', [LettreCvController::class, 'updateCv'])->name('cv.update');
     Route::get('/cv/pdf', [LettreCvController::class, 'previewPdf'])->name('cv.pdf');
+    Route::post('/cv/documents', [LettreCvController::class, 'uploadDocuments'])->name('cv.documents.upload');
+    Route::get('/cv/documents/download', [LettreCvController::class, 'downloadDocuments'])->name('cv.documents.download');
+    Route::delete('/cv/documents', [LettreCvController::class, 'deleteDocuments'])->name('cv.documents.delete');
 
     // Email Sending & Scheduling
     Route::post('/envoi-masse', [EnvoiController::class, 'envoyerMasse'])->name('envoi.masse');

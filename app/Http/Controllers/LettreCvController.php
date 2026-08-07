@@ -40,13 +40,28 @@ class LettreCvController extends Controller
         return redirect()->back()->with('success', 'Modèle de lettre mis à jour avec succès.');
     }
 
+    public static function getDocumentsPath(): string
+    {
+        return storage_path('app/documents/anlagen.pdf');
+    }
+
     /**
-     * View and edit CV sections.
+     * View and edit CV sections and attached documents.
      */
     public function editCv()
     {
         $sections = CvSection::all()->keyBy('section');
-        return view('lettre_cv.cv', compact('sections'));
+
+        $docPath = self::getDocumentsPath();
+        $hasDocuments = file_exists($docPath);
+        $documentsSizeFormatted = '';
+
+        if ($hasDocuments) {
+            $bytes = filesize($docPath);
+            $documentsSizeFormatted = round($bytes / (1024 * 1024), 2) . ' Mo';
+        }
+
+        return view('lettre_cv.cv', compact('sections', 'hasDocuments', 'documentsSizeFormatted'));
     }
 
     /**
@@ -92,7 +107,55 @@ class LettreCvController extends Controller
         return redirect()->back()->with('success', 'Mon CV et ma photo mis à jour avec succès.');
     }
 
+    /**
+     * Upload custom PDF document (Anlagen).
+     */
+    public function uploadDocuments(Request $request)
+    {
+        $request->validate([
+            'document' => 'required|file|mimes:pdf|max:15360', // max 15MB
+        ], [
+            'document.required' => 'Veuillez sélectionner un fichier PDF.',
+            'document.mimes'    => 'Le fichier doit être obligatoirement au format PDF.',
+            'document.max'      => 'La taille du fichier PDF ne doit pas dépasser 15 Mo.',
+        ]);
 
+        $file = $request->file('document');
+        $docsDir = storage_path('app/documents');
+        if (!file_exists($docsDir)) {
+            mkdir($docsDir, 0755, true);
+        }
+
+        $file->move($docsDir, 'anlagen.pdf');
+
+        return redirect()->route('cv.edit')->with('success', '📄 Document (Anlagen) téléversé et enregistré avec succès ! Il sera automatiquement joint à vos candidatures.');
+    }
+
+    /**
+     * Download uploaded custom PDF document.
+     */
+    public function downloadDocuments()
+    {
+        $docPath = self::getDocumentsPath();
+        if (!file_exists($docPath)) {
+            return redirect()->route('cv.edit')->with('error', 'Aucun document téléversé.');
+        }
+
+        return response()->download($docPath, 'Anlagen_Yassir_Kezzi.pdf');
+    }
+
+    /**
+     * Delete uploaded custom PDF document.
+     */
+    public function deleteDocuments()
+    {
+        $docPath = self::getDocumentsPath();
+        if (file_exists($docPath)) {
+            @unlink($docPath);
+        }
+
+        return redirect()->route('cv.edit')->with('success', 'Document supprimé avec succès.');
+    }
 
     /**
      * Download or preview PDF CV.
@@ -101,6 +164,6 @@ class LettreCvController extends Controller
     {
         $cvSections = CvSection::all()->keyBy('section');
         $pdf = Pdf::loadView('cv.pdf_template', compact('cvSections'));
-        return $pdf->stream('CV_Yassir_Kezzi_Preview.pdf');
+        return $pdf->stream('lebenslauf_yassir-kezzi.pdf');
     }
 }

@@ -289,4 +289,60 @@ class LettreCvControllerTest extends TestCase
         $response->assertOk();
         $this->assertStringContainsString('application/pdf', $response->headers->get('Content-Type'));
     }
+
+    // ==================================================================
+    // DOCUMENT PDF (ANLAGEN) MANAGEMENT
+    // ==================================================================
+
+    public function test_upload_documents_stores_pdf_file(): void
+    {
+        $pdf = UploadedFile::fake()->create('anlagen.pdf', 500, 'application/pdf');
+
+        $this->actingAs($this->user)
+             ->post(route('cv.documents.upload'), ['document' => $pdf])
+             ->assertRedirect(route('cv.edit'))
+             ->assertSessionHas('success');
+
+        $this->assertFileExists(storage_path('app/documents/anlagen.pdf'));
+
+        // Clean up
+        @unlink(storage_path('app/documents/anlagen.pdf'));
+    }
+
+    public function test_upload_documents_rejects_non_pdf(): void
+    {
+        $txt = UploadedFile::fake()->create('doc.txt', 10, 'text/plain');
+
+        $this->actingAs($this->user)
+             ->post(route('cv.documents.upload'), ['document' => $txt])
+             ->assertSessionHasErrors('document');
+    }
+
+    public function test_download_documents_returns_file_response(): void
+    {
+        $docsDir = storage_path('app/documents');
+        if (!file_exists($docsDir)) mkdir($docsDir, 0755, true);
+        file_put_contents($docsDir . '/anlagen.pdf', '%PDF-1.4 Fake PDF Content');
+
+        $response = $this->actingAs($this->user)->get(route('cv.documents.download'));
+
+        $response->assertOk();
+        $this->assertStringContainsString('application/pdf', $response->headers->get('Content-Type'));
+
+        @unlink($docsDir . '/anlagen.pdf');
+    }
+
+    public function test_delete_documents_removes_file(): void
+    {
+        $docsDir = storage_path('app/documents');
+        if (!file_exists($docsDir)) mkdir($docsDir, 0755, true);
+        file_put_contents($docsDir . '/anlagen.pdf', '%PDF-1.4 Fake PDF Content');
+
+        $this->actingAs($this->user)
+             ->delete(route('cv.documents.delete'))
+             ->assertRedirect(route('cv.edit'))
+             ->assertSessionHas('success');
+
+        $this->assertFileDoesNotExist($docsDir . '/anlagen.pdf');
+    }
 }

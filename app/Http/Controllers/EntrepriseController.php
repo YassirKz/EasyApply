@@ -33,6 +33,9 @@ class EntrepriseController extends Controller
                 $query->where('est_envoye', false);
             } elseif ($request->input('statut') === 'envoye') {
                 $query->where('est_envoye', true);
+            } elseif ($request->input('statut') === 'relance') {
+                $query->where('est_envoye', true)
+                      ->where('date_envoi', '<=', now()->subDays(15));
             }
         }
 
@@ -51,7 +54,11 @@ class EntrepriseController extends Controller
 
         $sentCount = Entreprise::where('est_envoye', true)->count();
 
-        return view('entreprises.index', compact('entreprises', 'pendingCount', 'scheduledCount', 'sentCount'));
+        $relanceCount = Entreprise::where('est_envoye', true)
+            ->where('date_envoi', '<=', now()->subDays(15))
+            ->count();
+
+        return view('entreprises.index', compact('entreprises', 'pendingCount', 'scheduledCount', 'sentCount', 'relanceCount'));
     }
 
     /**

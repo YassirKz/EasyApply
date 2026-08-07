@@ -72,8 +72,8 @@
          @open-schedule-modal.window="scheduleModal = true">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
-            <!-- 📊 4 STATISTICAL DASHBOARD CARDS -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- 📊 5 STATISTICAL DASHBOARD CARDS -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <!-- Card 1: Total Companies -->
                 <div class="bg-white dark:bg-stone-900 rounded-2xl p-5 border border-stone-200/80 dark:border-stone-800 shadow-sm hover:shadow-md transition duration-200 relative overflow-hidden group">
                     <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/5 dark:bg-amber-500/10 rounded-full group-hover:scale-125 transition duration-300"></div>
@@ -147,6 +147,26 @@
                         <span class="w-2 h-2 rounded-full bg-amber-700"></span> Envoi automatique planifié
                     </div>
                 </div>
+
+                <!-- Card 5: Relances (J+15) -->
+                <a href="{{ route('entreprises.index', ['statut' => 'relance']) }}" class="bg-white dark:bg-stone-900 rounded-2xl p-5 border border-stone-200/80 dark:border-stone-800 shadow-sm hover:shadow-md transition duration-200 relative overflow-hidden group">
+                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-500/5 dark:bg-rose-500/10 rounded-full group-hover:scale-125 transition duration-300"></div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider">Relances (J+15)</p>
+                            <h3 class="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{{ $relanceCount }}</h3>
+                        </div>
+                        <div class="w-11 h-11 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold shadow-inner relative">
+                            @if($relanceCount > 0)
+                                <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                            @endif
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">
+                        <span class="w-2 h-2 rounded-full bg-rose-500"></span> Rappeler après 15 jours
+                    </div>
+                </a>
             </div>
 
             <!-- Toolbar & Controls Bar -->
@@ -290,9 +310,15 @@
                                     </td>
                                     <td class="py-4 px-6 whitespace-nowrap">
                                         @if($entreprise->est_envoye)
-                                            <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full border border-emerald-200 dark:border-emerald-800">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Envoyé {{ $entreprise->date_envoi ? $entreprise->date_envoi->format('d/m/Y') : '' }}
-                                            </span>
+                                            @if($entreprise->date_envoi && $entreprise->date_envoi->diffInDays(now()) >= 15)
+                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-xs font-bold rounded-full border border-rose-200 dark:border-rose-800" title="Candidature envoyée depuis {{ (int)$entreprise->date_envoi->diffInDays(now()) }} jours : Relance conseillée !">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span> 🔔 Relance (J+{{ (int)$entreprise->date_envoi->diffInDays(now()) }})
+                                                </span>
+                                            @else
+                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full border border-emerald-200 dark:border-emerald-800">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Envoyé {{ $entreprise->date_envoi ? $entreprise->date_envoi->format('d/m/Y') : '' }}
+                                                </span>
+                                            @endif
                                         @elseif($entreprise->programmation_envoi)
                                             <div class="flex items-center gap-1.5">
                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 text-xs font-bold rounded-full border border-amber-200 dark:border-amber-800">

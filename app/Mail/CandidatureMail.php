@@ -100,7 +100,7 @@ class CandidatureMail extends Mailable
             mkdir($tempDirectory, 0755, true);
         }
         
-        $this->pdfPath = $tempDirectory . '/CV_Yassir_Kezzi_' . $entreprise->id . '.pdf';
+        $this->pdfPath = $tempDirectory . '/lebenslauf_yassir-kezzi_' . $entreprise->id . '.pdf';
         $pdf->save($this->pdfPath);
     }
 
@@ -135,10 +135,20 @@ class CandidatureMail extends Mailable
      */
     public function attachments(): array
     {
-        return [
+        $attachments = [
             Attachment::fromPath($this->pdfPath)
-                ->as('CV_Yassir_Kezzi.pdf')
+                ->as('lebenslauf_yassir-kezzi.pdf')
                 ->withMime('application/pdf'),
         ];
+
+        // Check if custom document PDF (Anlagen) exists in storage
+        $docPath = storage_path('app/documents/anlagen.pdf');
+        if (file_exists($docPath)) {
+            $attachments[] = Attachment::fromPath($docPath)
+                ->as('Anlagen_Yassir_Kezzi.pdf')
+                ->withMime('application/pdf');
+        }
+
+        return $attachments;
     }
 }
