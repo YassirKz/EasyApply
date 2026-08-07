@@ -201,32 +201,39 @@ class GeminiService
 
     /**
      * Search and extract company data from any input (Name, URL, Job Offer Text, or combination) using Gemini AI.
+     * Fetches live website content when a URL or company name is provided for maximum accuracy.
      * Returns an array with keys: firma, email, direktor, secteur.
      */
     public function searchCompanyData(string $input): array
-
     {
         $cleanInput = trim(htmlspecialchars_decode($input, ENT_QUOTES));
 
+        // Fetch live website content if input contains a URL or company domain
+        $liveWebContent = $this->fetchWebsiteContent($cleanInput);
+
         if (!empty($this->apiKey) && $this->apiKey !== 'YOUR_GEMINI_API_KEY') {
-            $prompt = "Du bist ein Assistent für Bewerbungsmanagement. Deine Aufgabe ist es, aus den folgenden Informationen (beliebiger Typ: Name, URL oder Text) die wichtigsten Daten für eine Bewerbung zu extrahieren.\n\n"
+            $promptInput = $cleanInput;
+            if (!empty($liveWebContent)) {
+                $promptInput .= "\n\n--- REAL LIVE WEBSITE CONTENT FETCHED FROM COMPANY ---\n" . $liveWebContent;
+            }
+
+            $prompt = "Du bist ein Assistent für Bewerbungsmanagement. Deine Aufgabe ist es, aus den folgenden Informationen (beliebiger Typ: Name, URL, Live-Website-Text oder Stellenanzeige) die EXAKTEN echten Daten für eine Bewerbung zu extrahieren.\n\n"
                 . "**Eingabe (einer der folgenden Typen):**\n"
                 . "- Typ 1: Nur der Firmenname (z.B. \"BMW\")\n"
                 . "- Typ 2: Eine URL (z.B. \"https://www.bmw.de\")\n"
-                . "- Typ 3: Der vollständige Text einer Stellenanzeige (beliebige Länge)\n"
+                . "- Typ 3: Der vollständige Text einer Stellenanzeige oder Website-Inhalt\n"
                 . "- Typ 4: Eine Kombination aus Name + URL + Text\n\n"
                 . "**Deine Aufgabe:**\n"
                 . "1. Erkenne automatisch, welcher Typ vorliegt.\n"
-                . "2. Extrahiere oder recherchiere (aus Deinem Wissen) diese 4 Informationen:\n"
-                . "   - Firmenname (bestätigen oder korrigieren)\n"
-                . "   - Kontakt-E-Mail (falls nicht direkt angegeben, schlage eine plausible E-Mail vor: bewerbung@firma.de, karriere@firma.de, info@firma.de)\n"
-                . "   - Ansprechpartner (falls genannt, sonst \"Personalabteilung\")\n"
-                . "   - Branche (z.B. \"Automotive\", \"Software\", \"Beratung\") – recherchiere bei Bedarf\n\n"
+                . "2. Extrahiere oder recherchiere (aus den angegebenen Website-Daten oder Deinem Wissen) diese 4 Informationen:\n"
+                . "   - Firmenname (bestätigen oder exakten offiziellen Namen wie GmbH/AG aus dem Impressum nutzen)\n"
+                . "   - Kontakt-E-Mail (nutze bevorzugt echte E-Mails aus dem Impressum/Kontakt wie karriere@firma.de, impressum@firma.de, kontakt@firma.de oder info@firma.de)\n"
+                . "   - Ansprechpartner (Name des Vorstands/Geschäftsführers/Recruiters, falls bekannt oder genannt, sonst \"Personalabteilung\")\n"
+                . "   - Branche (z.B. \"Automotive\", \"Software\", \"Beratung\", \"Industrie\")\n\n"
                 . "3. **Regeln:**\n"
-                . "   - Wenn die Eingabe nur ein Name ist, nutze Dein Wissen, um die fehlenden Felder zu füllen.\n"
-                . "   - Wenn die Eingabe eine URL ist, versuche, die Informationen aus dem Domain-Namen und Deinem Wissen zu extrahieren.\n"
-                . "   - Wenn die Eingabe ein Text ist, suche direkt darin nach den Informationen.\n"
-                . "   - Wenn eine Information fehlt, gib einen plausiblen Standardwert (z.B. \"nicht genannt\").\n\n"
+                . "   - Wenn echter Website-Inhalt mitgeliefert wird, nutze DIESEN bevorzugt für E-Mail, exakten Firmennamen und Ansprechpartner.\n"
+                . "   - Wenn die Eingabe nur ein Name/URL ist, nutze Dein Wissen und die Web-Daten, um die exakten Felder zu füllen.\n"
+                . "   - Wenn eine Information fehlt, gib einen plausiblen Standardwert (z.B. \"Personalabteilung\" für Ansprechpartner).\n\n"
                 . "**Gib die Antwort NUR als JSON-Objekt zurück, ohne Erklärungen.**\n"
                 . "Format:\n"
                 . "{\n"
@@ -235,11 +242,11 @@ class GeminiService
                 . "  \"direktor\": \"...\",\n"
                 . "  \"secteur\": \"...\"\n"
                 . "}\n\n"
-                . "Eingabe:\n"
-                . $cleanInput;
+                . "Eingabe & Live-Inhalt:\n"
+                . $promptInput;
 
             try {
-                $response = Http::timeout(10)->withHeaders([
+                $response = Http::timeout(12)->withHeaders([
                     'Content-Type' => 'application/json',
                 ])->post($this->apiUrl, [
                     'contents' => [
@@ -279,6 +286,90 @@ class GeminiService
 
         // Fallback search extractor when API key is unavailable or fails
         return $this->fallbackSearchCompanyData($cleanInput);
+    }
+
+    /**
+     * Fetch live website content (Homepage, Impressum, Kontakt, Karriere) if input contains URL or domain.
+     */
+    protected function fetchWebsiteContent(string $input): string
+    {
+        $urlsToTry = [];
+
+        // Check if input contains explicit URL
+        if (preg_match('/https?:\/\/[^\s]+/i', $input, $matches)) {
+            $urlsToTry[] = $matches[0];
+        } elseif (preg_match('/(?:www\.)?([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})(?:\/[^\s]*)?/i', $input, $matches)) {
+            $domain = $matches[1];
+            $urlsToTry[] = "https://www." . ltrim($domain, 'www.');
+            $urlsToTry[] = "https://" . ltrim($domain, 'www.');
+        } else {
+            // If input is short company name e.g. "BMW" or "Bosch", try common .de / .com domain
+            $cleanName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', explode(' ', trim($input))[0]));
+            if (!empty($cleanName) && strlen($cleanName) >= 3 && strlen($input) < 40) {
+                $urlsToTry[] = "https://www.{$cleanName}.de";
+                $urlsToTry[] = "https://www.{$cleanName}.com";
+            }
+        }
+
+        $scrapedText = '';
+
+        foreach ($urlsToTry as $baseUrl) {
+            try {
+                // Fetch Homepage
+                $response = Http::timeout(4)
+                    ->withHeaders([
+                        'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept-Language' => 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
+                    ])
+                    ->get($baseUrl);
+
+                if ($response->successful()) {
+                    $html = $response->body();
+                    $scrapedText .= "\n--- WEBPAGE ({$baseUrl}) ---\n" . $this->extractCleanTextFromHtml($html);
+
+                    // Try to find Impressum, Kontakt, or Karriere link in HTML
+                    if (preg_match('/href=["\']([^"\']*(?:impressum|kontakt|contact|karriere|about)[^"\']*)["\']/i', $html, $linkMatches)) {
+                        $subPath = $linkMatches[1];
+                        $subUrl = preg_match('/^https?:\/\//i', $subPath)
+                            ? $subPath
+                            : rtrim($baseUrl, '/') . '/' . ltrim($subPath, '/');
+
+                        try {
+                            $subResp = Http::timeout(3)
+                                ->withHeaders([
+                                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                                    'Accept-Language' => 'de-DE,de;q=0.9',
+                                ])
+                                ->get($subUrl);
+
+                            if ($subResp->successful()) {
+                                $scrapedText .= "\n--- IMPRESSUM/KONTAKT ({$subUrl}) ---\n" . $this->extractCleanTextFromHtml($subResp->body());
+                            }
+                        } catch (\Exception $e) {
+                            // Subpage fetch error ignored
+                        }
+                    }
+
+                    break; // Successfully fetched main page
+                }
+            } catch (\Exception $e) {
+                Log::warning("Web scraping attempt failed for {$baseUrl}: " . $e->getMessage());
+            }
+        }
+
+        return mb_substr($scrapedText, 0, 4000);
+    }
+
+    /**
+     * Clean raw HTML down to plain readable text.
+     */
+    protected function extractCleanTextFromHtml(string $html): string
+    {
+        $html = preg_replace('/<(script|style|svg|noscript|header|footer)[^>]*?>.*?<\/\\1>/si', '', $html);
+        $text = strip_tags($html);
+        $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+        $text = preg_replace('/\s+/', ' ', $text);
+        return trim($text);
     }
 
     /**
@@ -344,4 +435,3 @@ class GeminiService
         ];
     }
 }
-
