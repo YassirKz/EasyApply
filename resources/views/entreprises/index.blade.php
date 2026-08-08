@@ -36,17 +36,14 @@
                 </button>
 
                 <!-- Mass Send CTA -->
-                <form action="{{ route('envoi.masse') }}" method="POST" onsubmit="return confirm('Êtes-vous sûr de vouloir envoyer les candidatures aux {{ $pendingCount }} entreprise(s) en attente ?');">
-                    @csrf
-                    <button type="submit" 
-                            class="relative group inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-800 via-amber-700 to-yellow-700 hover:from-amber-700 hover:to-yellow-600 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-amber-800/25 hover:shadow-amber-700/40 hover:scale-[1.02] active:scale-[0.98] transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                            {{ $pendingCount == 0 ? 'disabled' : '' }}>
-                        <svg class="w-4 h-4 {{ $pendingCount > 0 ? 'animate-bounce' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                        </svg>
-                        <span>🚀 Lancer {{ $pendingCount > 0 ? "({$pendingCount})" : "(0)" }}</span>
-                    </button>
-                </form>
+                <button type="button" @click="openMassSendPreview()"
+                        class="relative group inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-800 via-amber-700 to-yellow-700 hover:from-amber-700 hover:to-yellow-600 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-amber-800/25 hover:shadow-amber-700/40 hover:scale-[1.02] active:scale-[0.98] transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                        :disabled="pendingCount === 0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                    <span>🚀 Lancer {{ $pendingCount > 0 ? '(' . $pendingCount . ')' : '(0)' }}</span>
+                </button>
             </div>
         </div>
     </x-slot>
@@ -223,6 +220,12 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                             <span>Nouvelle</span>
                         </button>
+
+                        <!-- Export CSV compatible Excel -->
+                        <a href="{{ route('entreprises.export') }}" class="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-sm transition duration-200 flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                            <span>📤 Exporter CSV</span>
+                        </a>
 
                         <!-- Import -->
                         <button @click="importModal = true" class="px-4 py-2.5 bg-stone-800 dark:bg-stone-700 hover:bg-stone-700 dark:hover:bg-stone-600 text-white font-bold text-xs sm:text-sm rounded-xl shadow-sm transition duration-200 flex items-center gap-1.5">
@@ -626,6 +629,73 @@
             </div>
         </div>
 
+        <!-- ✅ Prévisualisation avant envoi en masse -->
+        <div x-show="previewModal" x-cloak class="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div @click.away="previewModal = false" class="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-4xl w-full p-6 space-y-5 border border-stone-200 dark:border-stone-800 overflow-hidden">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-stone-100 dark:border-stone-800 pb-4">
+                    <div>
+                        <h3 class="font-extrabold text-xl text-stone-900 dark:text-white flex items-center gap-2">
+                            <span>✅</span> Confirmation avant envoi
+                        </h3>
+                        <p class="text-sm text-stone-500 dark:text-stone-400 mt-1">Vérifiez le résumé des entreprises concernées et l'aperçu de la lettre avant de lancer l'envoi.</p>
+                    </div>
+                    <button @click="previewModal = false" class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 font-bold text-2xl leading-none">&times;</button>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                    <div class="space-y-3 p-4 bg-stone-50 dark:bg-stone-950/50 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm">
+                        <div class="text-xs uppercase tracking-[0.2em] font-bold text-stone-400 dark:text-stone-500">Récapitulatif</div>
+                        <div class="text-3xl font-extrabold text-stone-900 dark:text-white">{{ $pendingCount }} entreprises</div>
+                        <div class="space-y-2 text-sm text-stone-600 dark:text-stone-300">
+                            <p><span class="font-semibold">En attente :</span> {{ $pendingCount }}</p>
+                            <p><span class="font-semibold">Date :</span> {{ now()->format('d/m/Y H:i') }}</p>
+                        </div>
+                    </div>
+
+                    <div class="xl:col-span-2 space-y-3">
+                        <div class="p-4 bg-stone-50 dark:bg-stone-950/50 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm">
+                            <div class="text-xs uppercase tracking-[0.2em] font-bold text-stone-400 dark:text-stone-500 mb-3">Aperçu de la lettre</div>
+                            <div x-show="previewLoading" class="flex items-center justify-center py-10 text-sm text-stone-500 dark:text-stone-400">Chargement de l'aperçu...</div>
+                            <div x-show="previewError" class="py-4 px-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-sm" x-text="previewError"></div>
+                            <div x-show="!previewLoading && !previewError" class="max-w-none text-sm leading-relaxed space-y-4 text-stone-700 dark:text-stone-200" x-html="previewHtml"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-stone-50 dark:bg-stone-950/50 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-y-auto max-h-72">
+                        <div class="text-xs uppercase tracking-[0.2em] font-bold text-stone-400 dark:text-stone-500 mb-3">Entreprises concernées</div>
+                        <template x-if="previewCompanies.length">
+                            <ul class="space-y-3 text-sm text-stone-700 dark:text-stone-300">
+                                <template x-for="company in previewCompanies" :key="company.email">
+                                    <li class="rounded-2xl p-3 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
+                                        <div class="font-semibold" x-text="company.nom"></div>
+                                        <div class="text-xs text-stone-500 dark:text-stone-400" x-text="company.email"></div>
+                                    </li>
+                                </template>
+                            </ul>
+                        </template>
+                        <div x-show="previewCompanies.length === 0 && !previewLoading && !previewError" class="text-sm text-stone-500 dark:text-stone-400">Aucune entreprise à afficher.</div>
+                    </div>
+
+                    <div class="flex flex-col justify-between gap-4 p-4 bg-stone-50 dark:bg-stone-950/50 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm">
+                        <div>
+                            <div class="text-xs uppercase tracking-[0.2em] font-bold text-stone-400 dark:text-stone-500 mb-3">Actions</div>
+                            <p class="text-sm text-stone-600 dark:text-stone-400">Si tout est correct, confirmez l'envoi pour déclencher l'opération de masse. Vous pourrez ensuite retrouver chaque entreprise comme « envoyé ».</p>
+                        </div>
+                        <form action="{{ route('envoi.masse') }}" method="POST">
+                            @csrf
+                            <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-amber-800 via-amber-700 to-yellow-700 text-white font-bold rounded-2xl shadow-lg hover:brightness-110 transition duration-200">
+                                Confirmer l'envoi
+                            </button>
+                        </form>
+                        <button type="button" @click="previewModal = false" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 font-semibold rounded-2xl hover:bg-stone-200 dark:hover:bg-stone-700 transition duration-200">
+                            Annuler
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Gemini AI AJAX Script -->
@@ -639,6 +709,12 @@
                 importModal: false,
                 editModal: false,
                 scheduleModal: false,
+                previewModal: false,
+                previewLoading: false,
+                previewError: null,
+                previewHtml: '',
+                previewCompanies: [],
+                pendingCount: {{ $pendingCount }},
                 editCompany: {},
                 selectedIds: [],
                 pageIds: {{ json_encode($entreprises->pluck('id')) }},
@@ -704,7 +780,6 @@
                             body: JSON.stringify({ texte_offre: this.texteOffre })
                         });
                         const data = await resp.json();
-                        // helper: decode HTML entities returned by server (if any)
                         const decodeHtml = (s) => {
                             try {
                                 const t = document.createElement('textarea');
@@ -716,15 +791,12 @@
                         if (data.success) {
                             if (data.firma)   this.addForm.nom       = decodeHtml(data.firma);
                             if (data.email)   this.addForm.email     = decodeHtml(data.email);
-                            // Fill directeur: prefer returned value, otherwise set a sensible default
                             const returnedDirecteur = (data.direktor || '').trim();
                             if (returnedDirecteur && returnedDirecteur.toLowerCase() !== 'nicht genannt' && returnedDirecteur.toLowerCase() !== 'personalabteilung') {
                                 if (!this.addForm.directeur) this.addForm.directeur = decodeHtml(returnedDirecteur);
                             } else {
-                                // If IA didn't provide a name, auto-fill with French default (won't overwrite user input)
                                 if (!this.addForm.directeur) this.addForm.directeur = 'Responsable Recrutement';
                             }
-                            // Fill telephone if provided by AI
                             if (data.telefon)  this.addForm.telephone = decodeHtml(data.telefon);
                             if (data.secteur)  this.addForm.secteur   = decodeHtml(data.secteur);
                         } else {
@@ -734,6 +806,45 @@
                         this.extractError = 'Erreur réseau. Vérifiez votre connexion.';
                     } finally {
                         this.extracting = false;
+                    }
+                },
+
+                async openMassSendPreview() {
+                    if (this.pendingCount === 0) {
+                        return;
+                    }
+
+                    this.previewLoading = true;
+                    this.previewError = null;
+                    this.previewHtml = '';
+                    this.previewCompanies = [];
+
+                    try {
+                        const response = await fetch('{{ route('envoi.preview') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                'Accept': 'application/json',
+                            },
+                            body: JSON.stringify({})
+                        });
+
+                        const data = await response.json();
+                        if (!response.ok || !data.success) {
+                            this.previewError = data.message || 'Impossible de charger l\'aperçu.';
+                            this.previewModal = true;
+                            return;
+                        }
+
+                        this.previewCompanies = data.companies || [];
+                        this.previewHtml = data.preview_html || '';
+                        this.previewModal = true;
+                    } catch (error) {
+                        this.previewError = 'Erreur réseau lors du chargement de l\'aperçu.';
+                        this.previewModal = true;
+                    } finally {
+                        this.previewLoading = false;
                     }
                 },
 

@@ -1,20 +1,19 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EntrepriseController;
 use App\Http\Controllers\LettreCvController;
 use App\Http\Controllers\EnvoiController;
 use App\Http\Controllers\ProfileController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return redirect()->route('entreprises.index');
+    return Auth::check() ? redirect()->route('dashboard') : redirect()->route('login');
 });
 
 Route::middleware(['auth'])->group(function () {
-    // Dashboard redirect
-    Route::get('/dashboard', function () {
-        return redirect()->route('entreprises.index');
-    })->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Entreprises CRUD & Import & AI & Batch Deletion
     Route::get('/entreprises', [EntrepriseController::class, 'index'])->name('entreprises.index');
@@ -25,10 +24,12 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/entreprises/all', [EntrepriseController::class, 'destroyAll'])->name('entreprises.destroyAll');
     Route::delete('/entreprises/{entreprise}', [EntrepriseController::class, 'destroy'])->name('entreprises.destroy');
     Route::post('/entreprises/import', [EntrepriseController::class, 'import'])->name('entreprises.import');
+    Route::get('/entreprises/export', [EntrepriseController::class, 'exportExcel'])->name('entreprises.export');
     Route::post('/entreprises/gemini-all', [EntrepriseController::class, 'generateAiAll'])->name('entreprises.geminiAll');
     Route::post('/entreprises/{entreprise}/gemini', [EntrepriseController::class, 'generateAi'])->name('entreprises.gemini');
     Route::post('/entreprises/extract-ia', [EntrepriseController::class, 'extractFromText'])->name('entreprises.extractIa');
 
+    Route::post('/envoi-preview', [EnvoiController::class, 'preview'])->name('envoi.preview');
 
 
     // Lettre & CV management

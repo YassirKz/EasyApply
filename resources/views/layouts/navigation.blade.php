@@ -17,6 +17,14 @@
 
                 <!-- Navigation Links -->
                 <div class="hidden space-x-1 sm:flex items-center">
+                    <a href="{{ route('dashboard') }}"
+                       class="px-3.5 py-2 rounded-xl text-sm font-semibold transition duration-150 flex items-center gap-2 {{ request()->routeIs('dashboard') ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-400' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100/70 dark:hover:bg-stone-800/50' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                        <span>Dashboard</span>
+                    </a>
+
                     <a href="{{ route('entreprises.index') }}" 
                        class="px-3.5 py-2 rounded-xl text-sm font-semibold transition duration-150 flex items-center gap-2 {{ request()->routeIs('entreprises.*') ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-400' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100/70 dark:hover:bg-stone-800/50' }}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,6 +137,7 @@
 
     <!-- Mobile Navigation Drawer -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden bg-white/95 dark:bg-stone-900/95 border-b border-stone-200 dark:border-stone-800 px-4 pt-2 pb-4 space-y-1">
+        <a href="{{ route('dashboard') }}" class="block px-3 py-2 rounded-xl text-base font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800">📊 Dashboard</a>
         <a href="{{ route('entreprises.index') }}" class="block px-3 py-2 rounded-xl text-base font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800">🏢 Entreprises</a>
         <a href="{{ route('lettre.edit') }}" class="block px-3 py-2 rounded-xl text-base font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800">✉️ Modifier ma lettre</a>
         <a href="{{ route('cv.edit') }}" class="block px-3 py-2 rounded-xl text-base font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800">📄 Modifier mon CV</a>

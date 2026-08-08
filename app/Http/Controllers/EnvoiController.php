@@ -11,6 +11,41 @@ use Illuminate\Support\Facades\Log;
 class EnvoiController extends Controller
 {
     /**
+     * Preview mass send before confirming.
+     */
+    public function preview(Request $request)
+    {
+        $entreprises = Entreprise::where('est_envoye', false)
+            ->where(function ($q) {
+                $q->whereNull('programmation_envoi')
+                  ->orWhere('programmation_envoi', '<=', now());
+            })
+            ->get();
+
+        if ($entreprises->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune entreprise prête à l\'envoi immédiat.',
+            ], 422);
+        }
+
+        $firstEntreprise = $entreprises->first();
+        $candidatureMail = new CandidatureMail($firstEntreprise);
+
+        return response()->json([
+            'success' => true,
+            'count' => $entreprises->count(),
+            'preview_html' => $candidatureMail->lettreTexte,
+            'companies' => $entreprises->map(function ($entreprise) {
+                return [
+                    'nom' => $entreprise->nom,
+                    'email' => $entreprise->email,
+                ];
+            })->toArray(),
+        ]);
+    }
+
+    /**
      * Send email applications to all pending entreprises (est_envoye == 0).
      */
     public function envoyerMasse(Request $request)

@@ -21,9 +21,9 @@ class EntrepriseController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('nom', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('secteur', 'like', "%{$search}%")
-                  ->orWhere('directeur', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('secteur', 'like', "%{$search}%")
+                    ->orWhere('directeur', 'like', "%{$search}%");
             });
         }
 
@@ -35,7 +35,7 @@ class EntrepriseController extends Controller
                 $query->where('est_envoye', true);
             } elseif ($request->input('statut') === 'relance') {
                 $query->where('est_envoye', true)
-                      ->where('date_envoi', '<=', now()->subDays(15));
+                    ->where('date_envoi', '<=', now()->subDays(15));
             }
         }
 
@@ -44,7 +44,7 @@ class EntrepriseController extends Controller
         $pendingCount = Entreprise::where('est_envoye', false)
             ->where(function ($q) {
                 $q->whereNull('programmation_envoi')
-                  ->orWhere('programmation_envoi', '<=', now());
+                    ->orWhere('programmation_envoi', '<=', now());
             })
             ->count();
 
@@ -163,6 +163,58 @@ class EntrepriseController extends Controller
             'texte_personnalise' => htmlspecialchars_decode($entreprise->texte_personnalise ?? '', ENT_QUOTES),
             'est_envoye'         => $entreprise->est_envoye,
         ]);
+    }
+
+    /**
+     * Export all entreprises into a CSV file compatible with Excel.
+     */
+    public function exportExcel()
+    {
+        $fileName = 'entreprises_export_' . now()->format('Y-m-d') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
+        ];
+
+        $callback = function () {
+            $handle = fopen('php://output', 'w');
+            // UTF-8 BOM for Excel compatibility
+            fwrite($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+            // CSV header row
+            fputcsv($handle, [
+                'Nom',
+                'Email',
+                'Directeur',
+                'Téléphone',
+                'Secteur',
+                'Statut',
+                'Date envoi',
+                'Créé le',
+                'Mis à jour le',
+            ], ';');
+
+            Entreprise::orderBy('nom')->chunk(200, function ($entreprises) use ($handle) {
+                foreach ($entreprises as $entreprise) {
+                    fputcsv($handle, [
+                        $entreprise->nom,
+                        $entreprise->email,
+                        $entreprise->directeur,
+                        $entreprise->telephone,
+                        $entreprise->secteur,
+                        $entreprise->est_envoye ? 'Envoyé' : 'En attente',
+                        $entreprise->date_envoi ? $entreprise->date_envoi->format('Y-m-d H:i:s') : '',
+                        $entreprise->created_at ? $entreprise->created_at->format('Y-m-d H:i:s') : '',
+                        $entreprise->updated_at ? $entreprise->updated_at->format('Y-m-d H:i:s') : '',
+                    ], ';');
+                }
+            });
+
+            fclose($handle);
+        };
+
+        return response()->streamDownload($callback, $fileName, $headers);
     }
 
     /**
