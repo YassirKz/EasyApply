@@ -39,6 +39,11 @@ class EntrepriseController extends Controller
             }
         }
 
+        // Response status filter
+        if ($request->filled('statut_reponse')) {
+            $query->where('statut_reponse', $request->input('statut_reponse'));
+        }
+
         $entreprises = $query->orderBy('created_at', 'desc')->paginate(15);
 
         $pendingCount = Entreprise::where('est_envoye', false)
@@ -52,13 +57,18 @@ class EntrepriseController extends Controller
             ->where('programmation_envoi', '>', now())
             ->count();
 
+        $nextScheduledAt = Entreprise::where('est_envoye', false)
+            ->where('programmation_envoi', '>', now())
+            ->orderBy('programmation_envoi')
+            ->value('programmation_envoi');
+
         $sentCount = Entreprise::where('est_envoye', true)->count();
 
         $relanceCount = Entreprise::where('est_envoye', true)
             ->where('date_envoi', '<=', now()->subDays(15))
             ->count();
 
-        return view('entreprises.index', compact('entreprises', 'pendingCount', 'scheduledCount', 'sentCount', 'relanceCount'));
+        return view('entreprises.index', compact('entreprises', 'pendingCount', 'scheduledCount', 'sentCount', 'relanceCount', 'nextScheduledAt'));
     }
 
     /**
@@ -110,6 +120,28 @@ class EntrepriseController extends Controller
         $entreprise->update($validated);
 
         return redirect()->route('entreprises.index')->with('success', 'Entreprise mise à jour avec succès.');
+    }
+
+    /**
+     * Update the response status of a company via AJAX.
+     */
+    public function updateStatut(Request $request, $id)
+    {
+        $entreprise = Entreprise::findOrFail($id);
+
+        $validated = $request->validate([
+            'statut_reponse' => 'required|in:en_attente,refuse,accepte,entretien_programme,en_cours,relance_envoyee',
+            'date_reponse' => 'nullable|date',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $entreprise->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Statut de réponse mis à jour.',
+            'entreprise' => $entreprise,
+        ]);
     }
 
     /**

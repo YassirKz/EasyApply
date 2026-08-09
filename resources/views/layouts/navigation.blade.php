@@ -1,6 +1,6 @@
 <nav x-data="{ open: false }" class="sticky top-0 z-40 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200/80 dark:border-stone-800/80 transition-colors duration-300">
     <!-- Primary Navigation Menu -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="w-full max-w-full px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
             <div class="flex items-center gap-8">
                 <!-- Logo -->
@@ -47,6 +47,22 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
                         <span>Mon CV</span>
+                    </a>
+
+                    <a href="{{ route('parametres.index') }}" 
+                       class="px-3.5 py-2 rounded-xl text-sm font-semibold transition duration-150 flex items-center gap-2 {{ request()->routeIs('parametres.*') ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-400' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100/70 dark:hover:bg-stone-800/50' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 16v-2m8-8h2M4 12H2m16.364 5.364l1.414 1.414M6.222 6.222L4.808 4.808m0 14.142l1.414-1.414M17.778 6.222l1.414-1.414M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+                        </svg>
+                        <span>Paramètres</span>
+                    </a>
+
+                    <a href="{{ route('historique.index') }}" 
+                       class="px-3.5 py-2 rounded-xl text-sm font-semibold transition duration-150 flex items-center gap-2 {{ request()->routeIs('historique.*') ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-400' : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100/70 dark:hover:bg-stone-800/50' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        <span>Historique</span>
                     </a>
 
                     <a href="{{ route('cv.pdf') }}" target="_blank" 
@@ -141,6 +157,8 @@
         <a href="{{ route('entreprises.index') }}" class="block px-3 py-2 rounded-xl text-base font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800">🏢 Entreprises</a>
         <a href="{{ route('lettre.edit') }}" class="block px-3 py-2 rounded-xl text-base font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800">✉️ Modifier ma lettre</a>
         <a href="{{ route('cv.edit') }}" class="block px-3 py-2 rounded-xl text-base font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800">📄 Modifier mon CV</a>
+        <a href="{{ route('parametres.index') }}" class="block px-3 py-2 rounded-xl text-base font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800">⚙️ Paramètres</a>
+        <a href="{{ route('historique.index') }}" class="block px-3 py-2 rounded-xl text-base font-semibold text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800">📜 Historique</a>
         <a href="{{ route('cv.pdf') }}" target="_blank" class="block px-3 py-2 rounded-xl text-base font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">📑 Aperçu CV PDF (ATS)</a>
     </div>
 </nav>

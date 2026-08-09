@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Mail\CandidatureMail;
 use App\Models\Entreprise;
+use App\Models\HistoriqueEmail;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -44,12 +45,22 @@ class SendScheduledEmails extends Command
 
         foreach ($dueEntreprises as $entreprise) {
             try {
-                Mail::to($entreprise->email)->send(new CandidatureMail($entreprise));
+                $candidatureMail = new CandidatureMail($entreprise);
+                Mail::to($entreprise->email)->send($candidatureMail);
 
                 $entreprise->update([
                     'est_envoye'          => true,
                     'date_envoi'          => now(),
                     'programmation_envoi' => null,
+                ]);
+
+                HistoriqueEmail::create([
+                    'entreprise_id' => $entreprise->id,
+                    'type' => 'candidature',
+                    'objet' => $candidatureMail->envelope()->subject,
+                    'contenu' => strip_tags($candidatureMail->lettreTexte),
+                    'date_envoi' => now(),
+                    'statut' => 'envoye',
                 ]);
 
                 $sent++;

@@ -51,7 +51,7 @@
     <div class="py-8 min-h-screen" 
          x-data="entreprisesPage"
          @open-schedule-modal.window="scheduleModal = true">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div class="w-full max-w-full px-4 sm:px-6 lg:px-8 space-y-6">
 
             <!-- 📊 5 STATISTICAL DASHBOARD CARDS -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -124,8 +124,16 @@
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                         </div>
                     </div>
-                    <div class="mt-3 flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">
-                        <span class="w-2 h-2 rounded-full bg-amber-700"></span> Envoi automatique planifié
+                    <div class="mt-3 flex flex-col gap-1 text-xs text-stone-500 dark:text-stone-400">
+                        <span class="inline-flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-amber-700"></span> Envoi automatique planifié
+                        </span>
+                        @if($nextScheduledAt)
+                            <span class="inline-flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l2 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Prochain envoi : {{ \Carbon\Carbon::parse($nextScheduledAt)->format('d/m H:i') }}
+                            </span>
+                        @endif
                     </div>
                 </div>
 
@@ -161,10 +169,22 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             </span>
                             <input type="text" 
-                                   name="search" 
-                                   value="{{ request('search') }}" 
-                                   placeholder="Rechercher par nom, email, directeur..." 
-                                   class="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700/80 rounded-xl focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 focus:bg-white dark:focus:bg-stone-800 text-stone-800 dark:text-stone-100 placeholder-stone-400 transition duration-150">
+                                name="search" 
+                                value="{{ request('search') }}" 
+                                placeholder="Rechercher par nom, email, directeur..." 
+                                class="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700/80 rounded-xl focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 focus:bg-white dark:focus:bg-stone-800 text-stone-800 dark:text-stone-100 placeholder-stone-400 transition duration-150">
+                        </div>
+                        <div class="w-full sm:w-56">
+                            <label class="block text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400 dark:text-stone-500 mb-2">Statut réponse</label>
+                            <select name="statut_reponse" class="w-full rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm text-stone-700 dark:text-stone-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400">
+                                <option value="">Tous les statuts</option>
+                                <option value="en_attente" {{ request('statut_reponse') === 'en_attente' ? 'selected' : '' }}>En attente</option>
+                                <option value="refuse" {{ request('statut_reponse') === 'refuse' ? 'selected' : '' }}>Refusé</option>
+                                <option value="accepte" {{ request('statut_reponse') === 'accepte' ? 'selected' : '' }}>Accepté</option>
+                                <option value="entretien_programme" {{ request('statut_reponse') === 'entretien_programme' ? 'selected' : '' }}>Entretien programmé</option>
+                                <option value="en_cours" {{ request('statut_reponse') === 'en_cours' ? 'selected' : '' }}>En cours</option>
+                                <option value="relance_envoyee" {{ request('statut_reponse') === 'relance_envoyee' ? 'selected' : '' }}>Relance envoyée</option>
+                            </select>
                         </div>
                         <button type="submit" class="px-4 py-2.5 bg-stone-900 dark:bg-stone-700 hover:bg-stone-800 dark:hover:bg-stone-600 text-white font-semibold text-xs sm:text-sm rounded-xl transition duration-150">
                             Filtrer
@@ -254,6 +274,7 @@
                                 <th class="py-4 px-6">Secteur</th>
                                 <th class="py-4 px-6">Texte Personnalisé (IA)</th>
                                 <th class="py-4 px-6">Statut</th>
+                                <th class="py-4 px-6">Envoi</th>
                                 <th class="py-4 px-6 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -296,32 +317,65 @@
                                         </button>
                                     </td>
                                     <td class="py-4 px-6 whitespace-nowrap">
-                                        @if($entreprise->est_envoye)
-                                            @if($entreprise->date_envoi && $entreprise->date_envoi->diffInDays(now()) >= 15)
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-xs font-bold rounded-full border border-rose-200 dark:border-rose-800" title="Candidature envoyée depuis {{ (int)$entreprise->date_envoi->diffInDays(now()) }} jours : Relance conseillée !">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span> 🔔 Relance (J+{{ (int)$entreprise->date_envoi->diffInDays(now()) }})
-                                                </span>
-                                            @else
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full border border-emerald-200 dark:border-emerald-800">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Envoyé {{ $entreprise->date_envoi ? $entreprise->date_envoi->format('d/m/Y') : '' }}
-                                                </span>
-                                            @endif
-                                        @elseif($entreprise->programmation_envoi)
-                                            <div class="flex items-center gap-1.5">
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 text-xs font-bold rounded-full border border-amber-200 dark:border-amber-800">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span> 🗓️ {{ $entreprise->programmation_envoi->format('d/m H:i') }}
-                                                </span>
+                                        <div class="space-y-2">
+                                            <select
+                                                class="w-full text-xs font-semibold rounded-xl border border-amber-700/30 bg-stone-900 text-stone-100 px-3 py-2 transition duration-150 outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 appearance-none"
+                                                x-on:change="updateStatut({{ $entreprise->id }}, $event.target.value, $event.target.closest('tr').querySelector('.statut-note'), $event.target.closest('tr').querySelector('.statut-date'), $event.target.closest('tr').querySelector('.statut-badge'))"
+                                                :class="{
+                                                    'bg-yellow-50 text-yellow-800 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-300': '{{ $entreprise->statut_reponse }}' === 'en_attente',
+                                                    'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950 dark:text-rose-300': '{{ $entreprise->statut_reponse }}' === 'refuse',
+                                                    'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300': '{{ $entreprise->statut_reponse }}' === 'accepte',
+                                                    'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300': '{{ $entreprise->statut_reponse }}' === 'entretien_programme',
+                                                    'bg-indigo-50 text-indigo-700 border-indigo-300 dark:bg-indigo-950 dark:text-indigo-300': '{{ $entreprise->statut_reponse }}' === 'en_cours',
+                                                    'bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950 dark:text-orange-300': '{{ $entreprise->statut_reponse }}' === 'relance_envoyee',
+                                                }"
+                                                id="statut-reponse-{{ $entreprise->id }}"
+                                            >
+                                                <option value="en_attente" {{ $entreprise->statut_reponse === 'en_attente' ? 'selected' : '' }}>En attente</option>
+                                                <option value="refuse" {{ $entreprise->statut_reponse === 'refuse' ? 'selected' : '' }}>Refusé</option>
+                                                <option value="accepte" {{ $entreprise->statut_reponse === 'accepte' ? 'selected' : '' }}>Accepté</option>
+                                                <option value="entretien_programme" {{ $entreprise->statut_reponse === 'entretien_programme' ? 'selected' : '' }}>Entretien programmé</option>
+                                                <option value="en_cours" {{ $entreprise->statut_reponse === 'en_cours' ? 'selected' : '' }}>En cours</option>
+                                                <option value="relance_envoyee" {{ $entreprise->statut_reponse === 'relance_envoyee' ? 'selected' : '' }}>Relance envoyée</option>
+                                            </select>
+                                            <div class="text-[11px] statut-badge {{ $entreprise->statut_reponse === 'en_attente' ? 'text-yellow-700' : ($entreprise->statut_reponse === 'refuse' ? 'text-rose-700' : ($entreprise->statut_reponse === 'accepte' ? 'text-emerald-700' : ($entreprise->statut_reponse === 'entretien_programme' ? 'text-blue-700' : ($entreprise->statut_reponse === 'en_cours' ? 'text-indigo-700' : 'text-orange-700')))) }}">
+                                                {{ str_replace('_', ' ', ucfirst($entreprise->statut_reponse)) }}
+                                            </div>
+                                            <div class="text-[11px] text-stone-500 dark:text-stone-400 statut-date">{{ $entreprise->date_reponse ? $entreprise->date_reponse->format('d/m/Y H:i') : 'Pas de date' }}</div>
+                                            <div class="text-[11px] text-stone-500 dark:text-stone-400 statut-note">{{ $entreprise->notes ?: 'Aucune note' }}</div>
+                                        </div>
+                                    </td>
+                                    <td class="py-4 px-6">
+                                        <div class="flex flex-col gap-2 w-full text-xs">
+                                            @if($entreprise->est_envoye)
+                                                @if($entreprise->date_envoi && $entreprise->date_envoi->diffInDays(now()) >= 15)
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-xs font-bold rounded-full border border-rose-200 dark:border-rose-800">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span> 🔔 Relance
+                                                    </span>
+                                                    <span class="text-[11px] text-stone-500 dark:text-stone-400">Envoyé le {{ $entreprise->date_envoi ? $entreprise->date_envoi->format('d/m/Y H:i') : '—' }}</span>
+                                                @else
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full border border-emerald-200 dark:border-emerald-800">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Envoyé
+                                                    </span>
+                                                    <span class="text-[11px] text-stone-500 dark:text-stone-400">Le {{ $entreprise->date_envoi ? $entreprise->date_envoi->format('d/m/Y H:i') : '—' }}</span>
+                                                @endif
+                                            @elseif($entreprise->programmation_envoi)
+                                                <div class="flex items-center gap-2">
+                                                    <span class="inline-flex items-center justify-center w-2.5 h-2.5 rounded-full bg-amber-600"></span>
+                                                    <span class="font-semibold text-amber-300">Programmé</span>
+                                                </div>
+                                                <span class="text-[11px] text-stone-500 dark:text-stone-400">{{ $entreprise->programmation_envoi->format('d/m/Y H:i') }}</span>
                                                 <form action="{{ route('envoi.annulerProgrammation', $entreprise) }}" method="POST" class="inline">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="text-xs text-rose-500 hover:text-rose-700 font-bold px-1" title="Annuler la programmation">✕</button>
+                                                    <button type="submit" class="text-xs text-rose-500 hover:text-rose-700 font-bold px-1" title="Annuler la programmation">✕ Annuler</button>
                                                 </form>
-                                            </div>
-                                        @else
-                                            <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-50 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-300 text-xs font-bold rounded-full border border-yellow-200 dark:border-yellow-800">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-ping"></span> En attente
-                                            </span>
-                                        @endif
+                                            @else
+                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-50 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-300 text-xs font-bold rounded-full border border-yellow-200 dark:border-yellow-800">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-ping"></span> En attente
+                                                </span>
+                                            @endif
+                                        </div>
                                     </td>
                                     <td class="py-4 px-6 text-right whitespace-nowrap">
                                         <div class="flex items-center justify-end gap-1.5">
@@ -358,7 +412,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="py-12 text-center text-stone-400 dark:text-stone-500">
+                                    <td colspan="8" class="py-12 text-center text-stone-400 dark:text-stone-500">
                                         <div class="max-w-xs mx-auto text-center space-y-2">
                                             <div class="text-3xl">🔍</div>
                                             <p class="font-bold text-stone-600 dark:text-stone-300">Aucune entreprise enregistrée</p>
@@ -806,6 +860,52 @@
                         this.extractError = 'Erreur réseau. Vérifiez votre connexion.';
                     } finally {
                         this.extracting = false;
+                    }
+                },
+
+                async updateStatut(id, statut, noteEl, dateEl, badgeEl) {
+                    try {
+                        const response = await fetch(`/entreprises/${id}/statut`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                'Accept': 'application/json',
+                            },
+                            body: JSON.stringify({ statut_reponse: statut })
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Erreur serveur');
+                        }
+
+                        const data = await response.json();
+                        if (data.success) {
+                            const statutMap = {
+                                en_attente: { label: 'En attente', classes: 'bg-yellow-50 text-yellow-800 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-300' },
+                                refuse: { label: 'Refusé', classes: 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950 dark:text-rose-300' },
+                                accepte: { label: 'Accepté', classes: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300' },
+                                entretien_programme: { label: 'Entretien programmé', classes: 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300' },
+                                en_cours: { label: 'En cours', classes: 'bg-indigo-50 text-indigo-700 border-indigo-300 dark:bg-indigo-950 dark:text-indigo-300' },
+                                relance_envoyee: { label: 'Relance envoyée', classes: 'bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950 dark:text-orange-300' },
+                            };
+
+                            const status = statutMap[statut] || statutMap.en_attente;
+
+                            if (badgeEl) {
+                                badgeEl.textContent = status.label;
+                                badgeEl.className = `text-[11px] ${status.classes}`;
+                            }
+                            if (dateEl) {
+                                dateEl.textContent = new Date().toLocaleString('fr-FR');
+                            }
+                            if (noteEl && noteEl.textContent === 'Aucune note') {
+                                noteEl.textContent = 'Statut mis à jour';
+                            }
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        alert('Impossible de mettre à jour le statut. Rechargez la page et réessayez.');
                     }
                 },
 

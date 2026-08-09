@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\CandidatureMail;
 use App\Models\Entreprise;
+use App\Models\HistoriqueEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -71,13 +72,24 @@ class EnvoiController extends Controller
 
         foreach ($entreprises as $entreprise) {
             try {
+                $candidatureMail = new CandidatureMail($entreprise);
+
                 // Send email with attached ATS CV PDF
-                Mail::to($entreprise->email)->send(new CandidatureMail($entreprise));
+                Mail::to($entreprise->email)->send($candidatureMail);
 
                 // Mark as sent
                 $entreprise->update([
                     'est_envoye' => true,
                     'date_envoi' => now(),
+                ]);
+
+                HistoriqueEmail::create([
+                    'entreprise_id' => $entreprise->id,
+                    'type' => 'candidature',
+                    'objet' => $candidatureMail->envelope()->subject,
+                    'contenu' => strip_tags($candidatureMail->lettreTexte),
+                    'date_envoi' => now(),
+                    'statut' => 'envoye',
                 ]);
 
                 $envoisReussis++;

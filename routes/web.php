@@ -4,6 +4,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EntrepriseController;
 use App\Http\Controllers\LettreCvController;
 use App\Http\Controllers\EnvoiController;
+use App\Http\Controllers\HistoriqueEmailController;
+use App\Http\Controllers\ParametreController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +30,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/entreprises/gemini-all', [EntrepriseController::class, 'generateAiAll'])->name('entreprises.geminiAll');
     Route::post('/entreprises/{entreprise}/gemini', [EntrepriseController::class, 'generateAi'])->name('entreprises.gemini');
     Route::post('/entreprises/extract-ia', [EntrepriseController::class, 'extractFromText'])->name('entreprises.extractIa');
+    Route::put('/entreprises/{id}/statut', [EntrepriseController::class, 'updateStatut'])->name('entreprises.updateStatut');
 
     Route::post('/envoi-preview', [EnvoiController::class, 'preview'])->name('envoi.preview');
 
@@ -47,6 +50,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/envoi-test', [EnvoiController::class, 'envoyerTest'])->name('envoi.test');
     Route::post('/envoi-programmer', [EnvoiController::class, 'programmerMasse'])->name('envoi.programmer');
     Route::delete('/entreprises/{entreprise}/programmer', [EnvoiController::class, 'annulerProgrammation'])->name('envoi.annulerProgrammation');
+
+    // Paramètres & Historique
+    Route::get('/parametres', [ParametreController::class, 'index'])->name('parametres.index');
+    Route::post('/parametres', [ParametreController::class, 'store'])->name('parametres.store');
+    Route::get('/historique-emails', [HistoriqueEmailController::class, 'index'])->name('historique.index');
 
     // Profile Management
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

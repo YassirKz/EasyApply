@@ -32,7 +32,7 @@
             <!-- Page Heading -->
             @isset($header)
                 <header class="bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200/60 dark:border-stone-700/60 shadow-sm sticky top-[64px] z-30">
-                    <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+                    <div class="w-full max-w-full py-4 px-4 sm:px-6 lg:px-8">
                         {{ $header }}
                     </div>
                 </header>
@@ -45,7 +45,7 @@
 
             <!-- Footer -->
             <footer class="mt-auto border-t border-stone-200/60 dark:border-stone-700/60 bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+                <div class="w-full max-w-full px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
                     <div class="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
                         <span class="bg-gradient-to-r from-amber-800 to-amber-900 text-white text-xs font-black px-2 py-0.5 rounded-md">EA</span>
                         <span>EasyApply &copy; {{ date('Y') }} — Yassir Kezzi</span>
