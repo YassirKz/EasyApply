@@ -18,29 +18,60 @@ class GeminiService
     }
 
     /**
-     * Generate 3-4 personalized sentences in German for a company application.
+     * Generate 4-6 personalized motivation sentences in German for a company application.
      */
-    public function generatePersonalizedText(string $nomEntreprise, ?string $secteur = null, ?string $directeur = null): string
-    {
+    public function generatePersonalizedText(
+        string $nomEntreprise,
+        ?string $secteur = null,
+        ?string $directeur = null,
+        ?string $offreTexte = null,
+        ?array $cvSections = null,
+        ?string $email = null,
+        ?string $telephone = null
+    ): string {
         // Decode HTML entities (e.g. &amp; -> &) for clean presentation
         $nomClean = trim(htmlspecialchars_decode($nomEntreprise, ENT_QUOTES));
         $secteurClean = $secteur ? trim(htmlspecialchars_decode($secteur, ENT_QUOTES)) : '';
         $directeurClean = $directeur ? trim(htmlspecialchars_decode($directeur, ENT_QUOTES)) : '';
+        $offreClean = $offreTexte ? trim(htmlspecialchars_decode($offreTexte, ENT_QUOTES)) : '';
+
+        // Build candidate CV summary
+        $cvSummary = '';
+        if (!empty($cvSections)) {
+            foreach ($cvSections as $sectionKey => $content) {
+                if (!empty($content)) {
+                    $cvSummary .= "- " . ucfirst($sectionKey) . ": " . trim($content) . "\n";
+                }
+            }
+        }
 
         // If Gemini API Key is configured in .env, perform live AI call
         if (!empty($this->apiKey) && $this->apiKey !== 'YOUR_GEMINI_API_KEY') {
-            $prompt = "Du bist ein professioneller Bewerbungs-Assistent für Fachinformatiker Anwendungsentwicklung in Deutschland. "
-                . "Schreibe einen kurzen, überzeugenden und hochprofessionellen Absatz (3 bis 4 Sätze) auf Deutsch für ein Anschreiben an das Unternehmen '{$nomClean}'"
-                . ($secteurClean ? " im Bereich '{$secteurClean}'" : "")
-                . ($directeurClean ? " (Ansprechpartner: Herr/Frau {$directeurClean})" : "") . ". "
-                . "Erkläre kurz, warum der Bewerber von den Projekten und Technologien des Unternehmens begeistert ist. "
-                . "Verwende KEINE Platzhalter, kein HTML, keine Anrede, nur den Fließtext des Absatzes.";
+            $prompt = "Du bist ein professioneller KI-Assistent in der Anwendung EasyApply für Bewerbungen in Deutschland.\n"
+                . "Deine Aufgabe: Schreibe ein hochpersonalisiertes Anschreiben-Absatz (4 bis 6 Sätze) auf Deutsch.\n\n"
+                . "STRIKTE REGELN:\n"
+                . "1. Professioneller, hochmotivierter und überzeugender Ton.\n"
+                . "2. Verknüpfe die spezifischen Fähigkeiten des Bewerbers (aus seinem Lebenslauf) direkt mit den Anforderungen der Stellenanzeige.\n"
+                . "3. ZWINGENDE LESE-BESTÄTIGUNG: Erwähne mindestens EIN konkretes, spezifisches Detail aus der Stellenanzeige (z.B. Branche, Software-Typ, Ort, Aufgaben oder Technologie-Stack).\n"
+                . "4. ABSOLUTES VERBOT von Anreden wie 'Sehr geehrte Damen und Herren'.\n"
+                . "5. ABSOLUTES VERBOT von Grußformeln wie 'Mit freundlichen Grüßen'.\n"
+                . "6. Antworte AUSSCHLIESSLICH auf Deutsch mit makelloser Grammatik.\n"
+                . "7. KEINE Anführungszeichen, KEIN Einleitungstext wie 'Hier ist der Text'. Gib NUR den Fließtext des Absatzes zurück.\n"
+                . "8. VERWENDE KEINE eckigen Klammern [] oder Platzhalter. Ersetze Begriffe direkt durch die echten Namen und konkreten Daten des Unternehmens.\n\n"
+                . "EINGABEDATEN:\n"
+                . "Unternehmensdaten:\n"
+                . "- Firma: {$nomClean}\n"
+                . ($secteurClean ? "- Branche/Sektor: {$secteurClean}\n" : "")
+                . ($directeurClean ? "- Ansprechpartner/RH: {$directeurClean}\n" : "")
+                . ($email ? "- E-Mail: {$email}\n" : "")
+                . ($telephone ? "- Telefon: {$telephone}\n" : "")
+                . ($offreClean ? "\nStellenanzeige (Stellenausschreibung):\n{$offreClean}\n" : "")
+                . ($cvSummary ? "\nLebenslauf des Bewerbers (Yassir Kezzi):\n{$cvSummary}\n" : "");
 
             try {
-                $response = Http::timeout(5)->withHeaders([
+                $response = Http::timeout(10)->withHeaders([
                     'Content-Type' => 'application/json',
                 ])->post($this->apiUrl, [
-
                     'contents' => [
                         [
                             'parts' => [
@@ -67,17 +98,17 @@ class GeminiService
 
         // Fallback: Intelligent Multi-Pattern Varied Text Generator (Ensures unique texts per company)
         $secteurPhrase = $secteurClean ? "im Bereich {$secteurClean}" : "in Ihrer Branche";
-        
+
         $patterns = [
-            "Das innovative Produktportfolio von {$nomClean} {$secteurPhrase} begeistert mich nachhaltig. Als engagierter Fachinformatiker möchte ich meine Begeisterung für moderne Softwarearchitekturen gewinnbringend in Ihre Teams einbringen. Gemeinsam mit {$nomClean} möchte ich zukunftsfähige digitale Lösungen vorantreiben.",
-            
-            "Die herausragenden Entwicklungen von {$nomClean} {$secteurPhrase} bieten das ideale Umfeld für meine berufliche Spezialisierung. Ich verfolge Ihre aktuellen Projekte mit großem Interesse und bin überzeugt, mit meinen Full-Stack-Kenntnissen einen wertvollen Beitrag zu leisten.",
-            
-            "Als dynamischer Entwickler schätze ich den hohen Qualitätsanspruch und die technische Exzellenz von {$nomClean} außerordentlich. Die Chance, an der Weiterentwicklung Ihrer Systeme {$secteurPhrase} mitzuwirken, motiviert mich zutiefst.",
-            
-            "{$nomClean} steht für zukunftsorientierte Technologie und kontinuierliches Wachstum. Meine soliden Grundlagen in Web-Technologien, Datenbankdesign und agiler Entwicklung passen perfekt zu den Anforderungsprofilen Ihrer Teams.",
-            
-            "Die Arbeit an maßgeschneiderten IT-Lösungen bei {$nomClean} fasziniert mich sehr. Ich bringe eine hohe Lernbereitschaft sowie ausgeprägte Problemlösungskompetenz mit, um Ihre Entwicklerteams {$secteurPhrase} tatkräftig zu unterstützen."
+            "Das innovative Produktportfolio von {$nomClean} {$secteurPhrase} begeistert mich nachhaltig. Als engagierter Fachinformatiker möchte ich meine Begeisterung für moderne Softwarearchitekturen gewinnbringend in Ihre Teams einbringen. Durch meine praktischen Erfahrungen im Full-Stack-Bereich und die Entwicklung robuster Webanwendungen bringe ich fundierte Kenntnisse mit, die optimal zu Ihren Anforderungen passen. Gemeinsam mit {$nomClean} möchte ich zukunftsfähige digitale Lösungen vorantreiben und mich kontinuierlich weiterentwickeln.",
+
+            "Die herausragenden Entwicklungen von {$nomClean} {$secteurPhrase} bieten das ideale Umfeld für meine berufliche Spezialisierung. Ich verfolge Ihre aktuellen Projekte mit großem Interesse und bin überzeugt, mit meinen Full-Stack-Kenntnissen einen wertvollen Beitrag zu leisten. Meine praktische Erfahrung in der Konzeption und Optimierung von Datenbanken sowie modernen Frameworks ergänzt Ihr Anforderungsprofil ideal. Sehr gerne möchte ich mich in Ihre zukunftsorientierten Softwareprojekte aktiv einbringen.",
+
+            "Als dynamischer Entwickler schätze ich den hohen Qualitätsanspruch und die technische Exzellenz von {$nomClean} außerordentlich. Die Chance, an der Weiterentwicklung Ihrer Systeme {$secteurPhrase} mitzuwirken, motiviert mich zutiefst. Aus meinen bisherigen Projekten bringe ich fundierte Kenntnisse in Frontend- und Backend-Technologien sowie agile Arbeitsweisen mit. Ich freue mich darauf, Ihr Entwicklerteam tatkräftig zu verstärken.",
+
+            "{$nomClean} steht für zukunftsorientierte Technologie und kontinuierliches Wachstum. Meine soliden Grundlagen in Web-Technologien, Datenbankdesign und agiler Entwicklung passen perfekt zu den Anforderungsprofilen Ihrer Teams. Insbesondere die praxisnahe Umsetzung moderner Softwarelösungen begeistert mich an Ihrer Stellenausschreibung. Ich bin überzeugt, durch mein Engagement und meine schnelle Auffassungsgabe einen nachhaltigen Mehrwert für Ihr Unternehmen zu schaffen.",
+
+            "Die Arbeit an maßgeschneiderten IT-Lösungen bei {$nomClean} fasziniert mich sehr. Ich bringe eine hohe Lernbereitschaft sowie ausgeprägte Problemlösungskompetenz mit, um Ihre Entwicklerteams {$secteurPhrase} tatkräftig zu unterstützen. Meine fundierten Kenntnisse im Bereich der modernen Anwendungsentwicklung ermöglichen mir einen raschen Einarbeitungsprozess in Ihre spezifischen Technologien. Ich freue mich darauf, mich motiviert und zielgerichtet in Ihre anstehenden Projekte einzubringen."
         ];
 
         // Pick deterministic yet varied pattern based on company name hash

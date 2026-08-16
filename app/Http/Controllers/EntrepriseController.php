@@ -272,10 +272,16 @@ class EntrepriseController extends Controller
      */
     public function generateAi(Entreprise $entreprise, GeminiService $geminiService)
     {
+        $cvSections = \App\Models\CvSection::all()->pluck('contenu', 'section')->toArray();
+
         $aiText = $geminiService->generatePersonalizedText(
             $entreprise->nom,
             $entreprise->secteur,
-            $entreprise->directeur
+            $entreprise->directeur,
+            $entreprise->offre_texte,
+            $cvSections,
+            $entreprise->email,
+            $entreprise->telephone
         );
 
         $entreprise->update([
@@ -296,6 +302,8 @@ class EntrepriseController extends Controller
         // Disable PHP execution timeout for bulk HTTP API calls
         set_time_limit(0);
 
+        $cvSections = \App\Models\CvSection::all()->pluck('contenu', 'section')->toArray();
+
         // Process in batches of up to 20 companies per request to ensure fast HTTP execution & avoid rate limits
         $entreprises = Entreprise::where(function ($query) {
                 $query->whereNull('texte_personnalise')
@@ -315,7 +323,11 @@ class EntrepriseController extends Controller
                 $aiText = $geminiService->generatePersonalizedText(
                     $entreprise->nom,
                     $entreprise->secteur,
-                    $entreprise->directeur
+                    $entreprise->directeur,
+                    $entreprise->offre_texte,
+                    $cvSections,
+                    $entreprise->email,
+                    $entreprise->telephone
                 );
 
                 if (!empty($aiText)) {
