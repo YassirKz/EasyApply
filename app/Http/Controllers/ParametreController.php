@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Parametre;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ParametreController extends Controller
 {
     public function index()
     {
+        // Global Scope automatically filters by Auth::id()
         $parameter = Parametre::firstOrCreate(
             ['cle' => 'programme_envoyez'],
             ['valeur' => '08:00']
@@ -28,6 +30,7 @@ class ParametreController extends Controller
             'programme_envoyez.date_format' => 'Le format doit être HH:MM.',
         ]);
 
+        // Global Scope + model booted() both ensure user_id is applied
         Parametre::updateOrCreate(
             ['cle' => 'programme_envoyez'],
             ['valeur' => $request->input('programme_envoyez')]

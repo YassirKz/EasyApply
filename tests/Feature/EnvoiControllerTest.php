@@ -277,11 +277,11 @@ class EnvoiControllerTest extends TestCase
 
     public function test_candidature_mail_attaches_custom_documents_pdf_if_present(): void
     {
-        $docsDir = storage_path('app/documents');
+        $e = Entreprise::factory()->create();
+        $docsDir = storage_path("app/documents/user_{$e->user_id}");
         if (!file_exists($docsDir)) mkdir($docsDir, 0755, true);
         file_put_contents($docsDir . '/anlagen.pdf', '%PDF-1.4 Custom Documents Content');
 
-        $e = Entreprise::factory()->create();
         $mail = new CandidatureMail($e);
 
         $attachments = $mail->attachments();

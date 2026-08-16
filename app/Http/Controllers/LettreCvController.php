@@ -6,14 +6,36 @@ use App\Models\Parametre;
 use App\Models\CvSection;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class LettreCvController extends Controller
 {
+    /**
+     * Get the per-user documents storage path.
+     */
+    public static function getDocumentsPath(?int $userId = null): string
+    {
+        $userId = $userId ?? Auth::id();
+        return storage_path("app/documents/user_{$userId}/anlagen.pdf");
+    }
+
+    /**
+     * Get the per-user profile photo public path.
+     */
+    public static function getPhotoPath(?int $userId = null): string
+    {
+        $userId = $userId ?? Auth::id();
+        return public_path("images/profile_photo_user_{$userId}.jpg");
+    }
+
+    // ─── Lettre de motivation ──────────────────────────────────────────────
+
     /**
      * View and edit motivation letter template.
      */
     public function editLettre()
     {
+        // Global Scope auto-filters to Auth::id()
         $parametre = Parametre::where('cle', 'modele_lettre')->first();
         $lettre = $parametre ? $parametre->valeur : '';
 
@@ -29,9 +51,7 @@ class LettreCvController extends Controller
             'valeur' => 'required|string',
         ]);
 
-        // Clean user input
-        $valeurNettoyee = strip_tags($request->input('valeur'), '<br><p>');
-
+        // Global Scope + model booted() ensure this is scoped to Auth::id()
         Parametre::updateOrCreate(
             ['cle' => 'modele_lettre'],
             ['valeur' => $request->input('valeur')]
@@ -40,17 +60,16 @@ class LettreCvController extends Controller
         return redirect()->back()->with('success', 'Modèle de lettre mis à jour avec succès.');
     }
 
-    public static function getDocumentsPath(): string
-    {
-        return storage_path('app/documents/anlagen.pdf');
-    }
+    // ─── CV ────────────────────────────────────────────────────────────────
 
     /**
      * View and edit CV sections and attached documents.
      */
     public function editCv()
     {
+        // Global Scope auto-filters to Auth::id()
         $sections = CvSection::all()->keyBy('section');
+        $parametres = Parametre::all()->keyBy('cle');
 
         $docPath = self::getDocumentsPath();
         $hasDocuments = file_exists($docPath);
@@ -61,7 +80,7 @@ class LettreCvController extends Controller
             $documentsSizeFormatted = round($bytes / (1024 * 1024), 2) . ' Mo';
         }
 
-        return view('lettre_cv.cv', compact('sections', 'hasDocuments', 'documentsSizeFormatted'));
+        return view('lettre_cv.cv', compact('sections', 'parametres', 'hasDocuments', 'documentsSizeFormatted'));
     }
 
     /**
@@ -70,6 +89,9 @@ class LettreCvController extends Controller
     public function updateCv(Request $request)
     {
         $data = $request->validate([
+            'cv_subtitle'       => 'nullable|string|max:255',
+            'cv_phone'          => 'nullable|string|max:100',
+            'cv_links'          => 'nullable|string|max:550',
             'profil'            => 'nullable|string',
             'competences'       => 'nullable|string',
             'praktikum'         => 'nullable|string',
@@ -81,22 +103,35 @@ class LettreCvController extends Controller
             'photo'             => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
         ]);
 
+        // Handle Header parameters (Subtitle, Phone, Links)
+        foreach (['cv_subtitle', 'cv_phone', 'cv_links'] as $headerKey) {
+            if (isset($data[$headerKey])) {
+                Parametre::updateOrCreate(
+                    ['cle' => $headerKey],
+                    ['valeur' => $data[$headerKey]]
+                );
+                unset($data[$headerKey]);
+            }
+        }
+
         if ($request->hasFile('photo')) {
             $photo = $request->file('photo');
             $imagesDir = public_path('images');
             if (!file_exists($imagesDir)) {
                 mkdir($imagesDir, 0755, true);
             }
-            // Remove existing old profile photos
-            foreach (glob($imagesDir . '/profile_photo.*') as $oldFile) {
-                if (file_exists($oldFile)) @unlink($oldFile);
+            // Store per-user photo — remove old one first
+            $photoPath = self::getPhotoPath();
+            if (file_exists($photoPath)) {
+                @unlink($photoPath);
             }
-            $photo->move($imagesDir, 'profile_photo.jpg');
+            $userId = Auth::id();
+            $photo->move($imagesDir, "profile_photo_user_{$userId}.jpg");
         }
-
 
         unset($data['photo']);
 
+        // Global Scope + model booted() ensure each section is scoped to Auth::id()
         foreach ($data as $sectionKey => $contenu) {
             CvSection::updateOrCreate(
                 ['section' => $sectionKey],
@@ -104,16 +139,18 @@ class LettreCvController extends Controller
             );
         }
 
-        return redirect()->back()->with('success', 'Mon CV et ma photo mis à jour avec succès.');
+        return redirect()->back()->with('success', 'Mon CV et mes informations d\'en-tête ont été mis à jour avec succès.');
     }
 
+    // ─── Documents (Anlagen PDF) ───────────────────────────────────────────
+
     /**
-     * Upload custom PDF document (Anlagen).
+     * Upload custom PDF document (Anlagen) — stored per user.
      */
     public function uploadDocuments(Request $request)
     {
         $request->validate([
-            'document' => 'required|file|mimes:pdf|max:15360', // max 15MB
+            'document' => 'required|file|mimes:pdf|max:15360',
         ], [
             'document.required' => 'Veuillez sélectionner un fichier PDF.',
             'document.mimes'    => 'Le fichier doit être obligatoirement au format PDF.',
@@ -121,7 +158,8 @@ class LettreCvController extends Controller
         ]);
 
         $file = $request->file('document');
-        $docsDir = storage_path('app/documents');
+        $userId = Auth::id();
+        $docsDir = storage_path("app/documents/user_{$userId}");
         if (!file_exists($docsDir)) {
             mkdir($docsDir, 0755, true);
         }
@@ -141,7 +179,7 @@ class LettreCvController extends Controller
             return redirect()->route('cv.edit')->with('error', 'Aucun document téléversé.');
         }
 
-        return response()->download($docPath, 'Anlagen_Yassir_Kezzi.pdf');
+        return response()->download($docPath, 'Anlagen.pdf');
     }
 
     /**
@@ -157,13 +195,17 @@ class LettreCvController extends Controller
         return redirect()->route('cv.edit')->with('success', 'Document supprimé avec succès.');
     }
 
+    // ─── PDF Preview ───────────────────────────────────────────────────────
+
     /**
      * Download or preview PDF CV.
      */
     public function previewPdf()
     {
+        $user = Auth::user();
+        // Global Scope auto-filters to Auth::id()
         $cvSections = CvSection::all()->keyBy('section');
-        $pdf = Pdf::loadView('cv.pdf_template', compact('cvSections'));
-        return $pdf->stream('lebenslauf_yassir-kezzi.pdf');
+        $pdf = Pdf::loadView('cv.pdf_template', compact('cvSections', 'user'));
+        return $pdf->stream('lebenslauf.pdf');
     }
 }

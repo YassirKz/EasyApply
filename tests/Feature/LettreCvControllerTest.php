@@ -228,10 +228,10 @@ class LettreCvControllerTest extends TestCase
              ->assertRedirect()
              ->assertSessionHas('success');
 
-        $this->assertFileExists(public_path('images/profile_photo.jpg'));
+        $this->assertFileExists(public_path("images/profile_photo_user_{$this->user->id}.jpg"));
 
         // Cleanup
-        @unlink(public_path('images/profile_photo.jpg'));
+        @unlink(public_path("images/profile_photo_user_{$this->user->id}.jpg"));
         @unlink($tmpPath);
     }
 
@@ -303,10 +303,11 @@ class LettreCvControllerTest extends TestCase
              ->assertRedirect(route('cv.edit'))
              ->assertSessionHas('success');
 
-        $this->assertFileExists(storage_path('app/documents/anlagen.pdf'));
+        $docPath = storage_path("app/documents/user_{$this->user->id}/anlagen.pdf");
+        $this->assertFileExists($docPath);
 
         // Clean up
-        @unlink(storage_path('app/documents/anlagen.pdf'));
+        @unlink($docPath);
     }
 
     public function test_upload_documents_rejects_non_pdf(): void
@@ -320,7 +321,7 @@ class LettreCvControllerTest extends TestCase
 
     public function test_download_documents_returns_file_response(): void
     {
-        $docsDir = storage_path('app/documents');
+        $docsDir = storage_path("app/documents/user_{$this->user->id}");
         if (!file_exists($docsDir)) mkdir($docsDir, 0755, true);
         file_put_contents($docsDir . '/anlagen.pdf', '%PDF-1.4 Fake PDF Content');
 
@@ -334,7 +335,7 @@ class LettreCvControllerTest extends TestCase
 
     public function test_delete_documents_removes_file(): void
     {
-        $docsDir = storage_path('app/documents');
+        $docsDir = storage_path("app/documents/user_{$this->user->id}");
         if (!file_exists($docsDir)) mkdir($docsDir, 0755, true);
         file_put_contents($docsDir . '/anlagen.pdf', '%PDF-1.4 Fake PDF Content');
 

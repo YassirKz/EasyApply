@@ -46,4 +46,21 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    // ─── Relationships ───────────────────────────────────────────────────────
+
+    public function entreprises()
+    {
+        return $this->hasMany(Entreprise::class);
+    }
+
+    public function parametres()
+    {
+        return $this->hasMany(Parametre::class);
+    }
+
+    public function cvSections()
+    {
+        return $this->hasMany(CvSection::class);
+    }
 }

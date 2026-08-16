@@ -93,7 +93,9 @@
                 @csrf
 
                 @php
-                    $existingPhotos = glob(public_path('images/profile_photo.*'));
+                    $userId = Auth::id();
+                    $userPhoto = public_path("images/profile_photo_user_{$userId}.jpg");
+                    $existingPhotos = file_exists($userPhoto) ? [$userPhoto] : glob(public_path('images/profile_photo.*'));
                     $hasExistingPhoto = !empty($existingPhotos) && file_exists(reset($existingPhotos));
                     $existingPhotoUrl = $hasExistingPhoto ? asset('images/' . basename(reset($existingPhotos))) . '?v=' . time() : null;
                 @endphp
@@ -132,6 +134,40 @@
                                    "
                                    class="w-full text-xs text-stone-500 dark:text-stone-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-800 hover:file:bg-amber-100 dark:file:bg-stone-800 dark:file:text-amber-400 border border-stone-200 dark:border-stone-700 rounded-xl p-1.5 cursor-pointer">
                             <p class="text-xs text-stone-400">Cliquez sur <strong>Enregistrer les modifications</strong> en bas pour valider.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 🏷️ Section: En-tête du CV ATS (Nom, Titre, Contact, Liens) -->
+                <div class="bg-white dark:bg-stone-900 rounded-2xl shadow-sm border border-stone-200/80 dark:border-stone-800 p-6 space-y-4">
+                    <h3 class="font-extrabold text-base text-stone-900 dark:text-white flex items-center gap-2 border-b border-stone-100 dark:border-stone-800 pb-3">
+                        <span>🏷️</span> En-tête du CV (Informations d'En-tête ATS)
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                                Nom & Prénom
+                            </label>
+                            <input type="text" disabled value="{{ Auth::user()->name }} ({{ Auth::user()->email }})" class="w-full text-xs font-semibold bg-stone-100 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700 rounded-xl text-stone-500 dark:text-stone-400 p-2.5">
+                            <p class="text-[11px] text-stone-400 mt-1">Affiché automatiquement dans l'en-tête du CV.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                                Titre du CV / Poste visé
+                            </label>
+                            <input type="text" name="cv_subtitle" value="{{ old('cv_subtitle', $parametres['cv_subtitle']->valeur ?? 'Junior Full-Stack Entwickler · Ausbildung Fachinformatiker') }}" placeholder="Ex: Junior Full-Stack Entwickler · Ausbildung Fachinformatiker" class="w-full text-xs sm:text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white p-2.5">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                                Numéro de Téléphone
+                            </label>
+                            <input type="text" name="cv_phone" value="{{ old('cv_phone', $parametres['cv_phone']->valeur ?? '+212 682 486 661') }}" placeholder="Ex: +212 682 486 661" class="w-full text-xs sm:text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white p-2.5">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">
+                                Liens Réseaux / Portfolio (LinkedIn, GitHub...)
+                            </label>
+                            <input type="text" name="cv_links" value="{{ old('cv_links', $parametres['cv_links']->valeur ?? 'linkedin.com/in/yassir-kezzi-530383283/ | github.com/YassirKz') }}" placeholder="Ex: linkedin.com/in/monprofil | github.com/moncompte" class="w-full text-xs sm:text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white p-2.5">
                         </div>
                     </div>
                 </div>

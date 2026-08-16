@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Lebenslauf - Yassir Kezzi</title>
+    <title>Lebenslauf - {{ $user?->name ?? 'Candidat' }}</title>
     <style>
         @page {
             margin: 18mm 16mm 18mm 16mm;
@@ -81,8 +81,11 @@
 <body>
 
 @php
-    // Search for any profile photo regardless of extension case
-    $photoFiles = array_merge(
+    $user = $user ?? Auth::user();
+    $userId = $user?->id ?? Auth::id() ?? 1;
+
+    $userPhoto = public_path("images/profile_photo_user_{$userId}.jpg");
+    $photoFiles = file_exists($userPhoto) ? [$userPhoto] : array_merge(
         glob(public_path('images/profile_photo.jpg')) ?: [],
         glob(public_path('images/profile_photo.JPG')) ?: [],
         glob(public_path('images/profile_photo.jpeg')) ?: [],
@@ -99,6 +102,25 @@
         $mimeExt = ($extRaw === 'jpg') ? 'jpeg' : $extRaw;
         $photoBase64 = 'data:image/' . $mimeExt . ';base64,' . base64_encode($photoData);
     }
+
+    // Dynamic header values per user
+    $userName = $user?->name ?? 'Yassir Kezzi';
+    $userEmail = $user?->email ?? 'kezziyassir005@gmail.com';
+
+    $subtitle = \App\Models\Parametre::withoutGlobalScopes()
+        ->where('user_id', $userId)
+        ->where('cle', 'cv_subtitle')
+        ->value('valeur') ?: 'Junior Full-Stack Entwickler · Ausbildung Fachinformatiker';
+
+    $phone = \App\Models\Parametre::withoutGlobalScopes()
+        ->where('user_id', $userId)
+        ->where('cle', 'cv_phone')
+        ->value('valeur') ?: '+212 682 486 661';
+
+    $links = \App\Models\Parametre::withoutGlobalScopes()
+        ->where('user_id', $userId)
+        ->where('cle', 'cv_links')
+        ->value('valeur') ?: 'linkedin.com/in/yassir-kezzi-530383283/ | github.com/YassirKz';
 @endphp
 
 
@@ -107,10 +129,10 @@
         <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; padding: 0;">
             <tr>
                 <td style="border: none; vertical-align: top; padding: 0;">
-                    <h1>Yassir Kezzi</h1>
-                    <div class="subtitle">Junior Full-Stack Entwickler · Ausbildung Fachinformatiker</div>
+                    <h1>{{ $userName }}</h1>
+                    <div class="subtitle">{{ $subtitle }}</div>
                     <div class="contact-info">
-                        +212 682 486 661 &nbsp;|&nbsp; kezziyassir005@gmail.com &nbsp;|&nbsp; linkedin.com/in/yassir-kezzi-530383283/ &nbsp;|&nbsp; github.com/YassirKz
+                        {{ $phone }} &nbsp;|&nbsp; {{ $userEmail }} &nbsp;|&nbsp; {{ $links }}
                     </div>
                 </td>
                 @if($photoBase64)

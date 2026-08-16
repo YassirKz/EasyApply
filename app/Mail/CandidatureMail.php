@@ -55,10 +55,16 @@ class CandidatureMail extends Mailable
     public function __construct(Entreprise $entreprise)
     {
         $this->entreprise = $entreprise;
+        $userId = $entreprise->user_id;
 
-        // Fetch letter template
-        $templateParam = Parametre::where('cle', 'modele_lettre')->first();
-        $template = $templateParam ? $templateParam->valeur : "Sehr geehrte(r) Frau/Herr [NOM_DIRECTEUR],\n\n[TEXTE_PERSONNALISE]\n\nMit freundlichen Grüßen,\nYassir Kezzi";
+        // Fetch letter template scoped to this entreprise's owner
+        $templateParam = Parametre::withoutGlobalScopes()
+            ->where('user_id', $userId)
+            ->where('cle', 'modele_lettre')
+            ->first();
+        $template = $templateParam
+            ? $templateParam->valeur
+            : "Sehr geehrte(r) Frau/Herr [NOM_DIRECTEUR],\n\n[TEXTE_PERSONNALISE]\n\nMit freundlichen Grüßen,\nYassir Kezzi";
 
         // Replace placeholders securely with unescaped HTML characters for email
         $directeurClean = htmlspecialchars_decode(strip_tags($entreprise->directeur ?? ''), ENT_QUOTES);
@@ -89,10 +95,11 @@ class CandidatureMail extends Mailable
         // Convert newlines to HTML breaks and encode HTML special characters securely
         $this->lettreTexte = nl2br(e($text));
 
-
-
-        // Generate ATS CV PDF in memory / temp file
-        $cvSections = CvSection::all()->keyBy('section');
+        // Generate ATS CV PDF using the owner's CV sections
+        $cvSections = CvSection::withoutGlobalScopes()
+            ->where('user_id', $userId)
+            ->get()
+            ->keyBy('section');
         $pdf = Pdf::loadView('cv.pdf_template', compact('cvSections'));
         
         $tempDirectory = storage_path('app/temp');
@@ -100,7 +107,7 @@ class CandidatureMail extends Mailable
             mkdir($tempDirectory, 0755, true);
         }
         
-        $this->pdfPath = $tempDirectory . '/lebenslauf_yassir-kezzi_' . $entreprise->id . '.pdf';
+        $this->pdfPath = $tempDirectory . '/lebenslauf_user' . $userId . '_' . $entreprise->id . '.pdf';
         $pdf->save($this->pdfPath);
     }
 
@@ -137,15 +144,16 @@ class CandidatureMail extends Mailable
     {
         $attachments = [
             Attachment::fromPath($this->pdfPath)
-                ->as('lebenslauf_yassir-kezzi.pdf')
+                ->as('lebenslauf.pdf')
                 ->withMime('application/pdf'),
         ];
 
-        // Check if custom document PDF (Anlagen) exists in storage
-        $docPath = storage_path('app/documents/anlagen.pdf');
+        // Check if the owner's custom document PDF (Anlagen) exists in storage
+        $userId = $this->entreprise->user_id;
+        $docPath = storage_path("app/documents/user_{$userId}/anlagen.pdf");
         if (file_exists($docPath)) {
             $attachments[] = Attachment::fromPath($docPath)
-                ->as('Anlagen_Yassir_Kezzi.pdf')
+                ->as('Anlagen.pdf')
                 ->withMime('application/pdf');
         }
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Entreprise;
 use App\Services\GeminiService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class EntrepriseController extends Controller
@@ -76,9 +77,15 @@ class EntrepriseController extends Controller
      */
     public function store(Request $request)
     {
+        $userId = Auth::id();
+
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:entreprises,email',
+            // Email must be unique per user (not globally)
+            'email' => [
+                'required', 'email', 'max:255',
+                \Illuminate\Validation\Rule::unique('entreprises')->where('user_id', $userId),
+            ],
             'directeur' => 'required|string|max:255',
             'telephone' => 'nullable|string|max:50',
             'secteur' => 'nullable|string|max:255',
@@ -92,6 +99,8 @@ class EntrepriseController extends Controller
         if (isset($validated['secteur'])) $validated['secteur'] = strip_tags(trim($validated['secteur']));
         if (isset($validated['texte_personnalise'])) $validated['texte_personnalise'] = strip_tags(trim($validated['texte_personnalise']));
 
+        // user_id is auto-set by model booted() hook, but explicit is safer
+        $validated['user_id'] = $userId;
         Entreprise::create($validated);
 
         return redirect()->route('entreprises.index')->with('success', 'Entreprise ajoutée avec succès.');
@@ -102,9 +111,17 @@ class EntrepriseController extends Controller
      */
     public function update(Request $request, Entreprise $entreprise)
     {
+        $userId = Auth::id();
+
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:entreprises,email,' . $entreprise->id,
+            // Email must be unique per user, excluding current record
+            'email' => [
+                'required', 'email', 'max:255',
+                \Illuminate\Validation\Rule::unique('entreprises')
+                    ->where('user_id', $userId)
+                    ->ignore($entreprise->id),
+            ],
             'directeur' => 'required|string|max:255',
             'telephone' => 'nullable|string|max:50',
             'secteur' => 'nullable|string|max:255',
@@ -227,6 +244,7 @@ class EntrepriseController extends Controller
                 'Mis à jour le',
             ], ';');
 
+            // Global Scope automatically filters by current user
             Entreprise::orderBy('nom')->chunk(200, function ($entreprises) use ($handle) {
                 foreach ($entreprises as $entreprise) {
                     fputcsv($handle, [
@@ -271,40 +289,57 @@ class EntrepriseController extends Controller
     }
 
     /**
-     * Generate AI text for ALL entreprises in the database.
+     * Generate AI text for ALL entreprises in the database (batched).
      */
     public function generateAiAll(GeminiService $geminiService)
     {
-        // Prevent PHP execution timeout for bulk HTTP API calls
-        set_time_limit(300);
-        // Only process entreprises that do not yet have a generated text
-        $entreprises = Entreprise::whereNull('texte_personnalise')
-            ->orWhere('texte_personnalise', '')
-            ->get();
+        // Disable PHP execution timeout for bulk HTTP API calls
+        set_time_limit(0);
 
-        $count = 0;
+        // Process in batches of up to 20 companies per request to ensure fast HTTP execution & avoid rate limits
+        $entreprises = Entreprise::where(function ($query) {
+                $query->whereNull('texte_personnalise')
+                      ->orWhere('texte_personnalise', '');
+            })
+            ->take(20)
+            ->get();
 
         if ($entreprises->isEmpty()) {
             return redirect()->route('entreprises.index')->with('info', 'Aucune entreprise à générer : tous les enregistrements ont déjà un texte IA.');
         }
 
-        foreach ($entreprises as $entreprise) {
-            $aiText = $geminiService->generatePersonalizedText(
-                $entreprise->nom,
-                $entreprise->secteur,
-                $entreprise->directeur
-            );
+        $count = 0;
 
-            // Only update if we received non-empty text
-            if (!empty($aiText)) {
-                $entreprise->update([
-                    'texte_personnalise' => $aiText
-                ]);
-                $count++;
+        foreach ($entreprises as $entreprise) {
+            try {
+                $aiText = $geminiService->generatePersonalizedText(
+                    $entreprise->nom,
+                    $entreprise->secteur,
+                    $entreprise->directeur
+                );
+
+                if (!empty($aiText)) {
+                    $entreprise->update([
+                        'texte_personnalise' => $aiText
+                    ]);
+                    $count++;
+                }
+            } catch (\Exception $e) {
+                Log::error("Bulk Gemini AI generation error for company {$entreprise->id}: " . $e->getMessage());
             }
         }
 
-        return redirect()->route('entreprises.index')->with('success', "Textes IA générés avec succès pour les {$count} entreprise(s) !");
+        $remaining = Entreprise::where(function ($query) {
+            $query->whereNull('texte_personnalise')
+                  ->orWhere('texte_personnalise', '');
+        })->count();
+
+        $msg = "✨ Textes IA générés avec succès pour {$count} entreprise(s) !";
+        if ($remaining > 0) {
+            $msg .= " ({$remaining} entreprise(s) restent en attente. Re-cliquez sur 'Générer IA' pour continuer).";
+        }
+
+        return redirect()->route('entreprises.index')->with('success', $msg);
     }
 
 
@@ -443,7 +478,7 @@ class EntrepriseController extends Controller
             $telephone = strip_tags(trim($telephone));
             $secteur = strip_tags(trim($secteur));
 
-            // Upsert option A
+            // Upsert per user — Global Scope ensures we only touch this user's records
             $existing = Entreprise::where('email', $email)->first();
             if ($existing) {
                 $existing->update([
@@ -455,6 +490,7 @@ class EntrepriseController extends Controller
                 $updatedCount++;
             } else {
                 Entreprise::create([
+                    'user_id' => Auth::id(),
                     'nom' => $nom,
                     'email' => $email,
                     'directeur' => $directeur,
