@@ -686,116 +686,75 @@
         </div>
 
         <!-- ✅ Prévisualisation avant envoi en masse -->
-        <div x-show="previewModal" x-cloak class="fixed inset-0 bg-stone-950/80 backdrop-blur-md z-50 overflow-y-auto p-3 sm:p-5 flex items-center justify-center">
-            <div @click.away="previewModal = false" class="bg-white dark:bg-stone-900 rounded-3xl shadow-2xl max-w-6xl w-full max-h-[95vh] flex flex-col border border-stone-200 dark:border-stone-800 overflow-hidden my-auto">
+        <div x-show="previewModal" x-cloak class="fixed inset-0 bg-stone-950/75 backdrop-blur-md z-50 overflow-y-auto p-4 flex items-center justify-center">
+            <div @click.away="previewModal = false" class="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-xl w-full p-6 space-y-4 border border-stone-200 dark:border-stone-800 my-auto max-h-[88vh] overflow-y-auto">
                 
                 <!-- Modal Header -->
-                <div class="flex justify-between items-center px-6 py-4 border-b border-stone-100 dark:border-stone-800 shrink-0 bg-stone-50/50 dark:bg-stone-900/50">
-                    <div>
-                        <h3 class="font-extrabold text-lg sm:text-xl text-stone-900 dark:text-white flex items-center gap-2">
-                            <span>🚀</span> Confirmation et Aperçu de la Lettre
-                        </h3>
-                        <p class="text-xs text-stone-500 dark:text-stone-400 mt-0.5">Vérifiez le contenu de la lettre et la liste des destinataires avant le lancement.</p>
-                    </div>
-                    <button @click="previewModal = false" class="w-9 h-9 flex items-center justify-center rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-400 hover:text-stone-700 dark:hover:text-white font-bold text-xl transition">&times;</button>
+                <div class="flex justify-between items-center border-b border-stone-100 dark:border-stone-800 pb-3">
+                    <h3 class="font-extrabold text-base sm:text-lg text-stone-900 dark:text-white flex items-center gap-2">
+                        <span>🚀</span> Confirmation avant envoi
+                    </h3>
+                    <button @click="previewModal = false" class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 font-bold text-xl leading-none">&times;</button>
                 </div>
 
-                <!-- Modal Body (Scrollable container) -->
-                <div class="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+                <p class="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+                    Vérifiez le résumé des entreprises concernées et l'aperçu de la lettre aux <strong class="text-stone-900 dark:text-white">{{ $pendingCount }} entreprise(s) en attente</strong>.
+                </p>
+
+                <!-- Letter Preview Box -->
+                <div class="space-y-1.5">
+                    <div class="text-[11px] uppercase tracking-wider font-bold text-stone-400 dark:text-stone-500">📄 Aperçu de la lettre</div>
+                    <div x-show="previewLoading" class="flex items-center justify-center py-10 text-xs text-stone-500 bg-stone-50 dark:bg-stone-950/50 rounded-xl border border-stone-200 dark:border-stone-800">
+                        ⌛ Chargement...
+                    </div>
+                    <div x-show="previewError" class="py-3 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs" x-text="previewError"></div>
                     
-                    <!-- Stats Bar -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div class="p-3 bg-amber-50/60 dark:bg-amber-950/30 rounded-2xl border border-amber-200/60 dark:border-amber-800/40 flex items-center gap-3">
-                            <span class="text-xl">📬</span>
-                            <div>
-                                <div class="text-[11px] text-amber-800 dark:text-amber-400 font-bold uppercase tracking-wider">Destinataires</div>
-                                <div class="text-base font-extrabold text-stone-900 dark:text-white">{{ $pendingCount }} entreprise(s)</div>
-                            </div>
-                        </div>
-                        <div class="p-3 bg-stone-50 dark:bg-stone-800/40 rounded-2xl border border-stone-200 dark:border-stone-800 flex items-center gap-3">
-                            <span class="text-xl">📅</span>
-                            <div>
-                                <div class="text-[11px] text-stone-500 dark:text-stone-400 font-bold uppercase tracking-wider">Date d'envoi</div>
-                                <div class="text-xs font-bold text-stone-900 dark:text-white">{{ now()->format('d/m/Y H:i') }} (Immédiat)</div>
-                            </div>
-                        </div>
-                        <div class="p-3 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/40 flex items-center gap-3">
-                            <span class="text-xl">⚡</span>
-                            <div>
-                                <div class="text-[11px] text-emerald-800 dark:text-emerald-400 font-bold uppercase tracking-wider">Mode d'envoi</div>
-                                <div class="text-xs font-bold text-stone-900 dark:text-white">File d'attente automatique</div>
-                            </div>
+                    <div x-show="!previewLoading && !previewError" 
+                         class="bg-stone-950 text-stone-100 p-4 rounded-xl border border-stone-800 shadow-inner overflow-y-auto max-h-48 text-xs leading-relaxed whitespace-pre-line font-sans"
+                         x-html="previewHtml">
+                    </div>
+                </div>
+
+                <!-- Companies List Box -->
+                <div class="space-y-1.5">
+                    <div class="text-[11px] uppercase tracking-wider font-bold text-stone-400 dark:text-stone-500">🏢 Entreprises concernées ({{ $pendingCount }})</div>
+                    <div class="bg-stone-50 dark:bg-stone-950/50 rounded-xl border border-stone-200 dark:border-stone-800 p-2.5 overflow-y-auto max-h-36 space-y-1.5">
+                        <template x-if="previewCompanies.length">
+                            <ul class="space-y-1.5 text-xs">
+                                <template x-for="company in previewCompanies" :key="company.email">
+                                    <li class="p-2 bg-white dark:bg-stone-900 rounded-lg border border-stone-200/80 dark:border-stone-800 flex justify-between items-center">
+                                        <div class="truncate mr-2">
+                                            <div class="font-bold text-stone-900 dark:text-white truncate" x-text="company.nom"></div>
+                                            <div class="text-[10px] text-amber-800 dark:text-amber-400 truncate" x-text="company.email"></div>
+                                        </div>
+                                        <span class="shrink-0 px-1.5 py-0.5 text-[9px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 rounded">En attente</span>
+                                    </li>
+                                </template>
+                            </ul>
+                        </template>
+                        <div x-show="previewCompanies.length === 0 && !previewLoading && !previewError" class="text-xs text-stone-500 p-1">Aucune entreprise à afficher.</div>
+                    </div>
+                </div>
+
+                <!-- Modal Actions -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-stone-100 dark:border-stone-800">
+                    <button type="button" @click="previewModal = false" class="px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-bold rounded-xl hover:bg-stone-200 transition">
+                        Annuler
+                    </button>
+                    <form action="{{ route('envoi.masse') }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="px-5 py-2 bg-amber-800 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md transition">
+                            🚀 Confirmer l'envoi
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+        </div>                               </button>
+                            </form>
                         </div>
                     </div>
 
-                    <!-- Split Layout: Left = Letter Content (7 cols), Right = Target list & Actions (5 cols) -->
-                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                        
-                        <!-- Left Panel: Full Letter Preview -->
-                        <div class="lg:col-span-7 flex flex-col space-y-2">
-                            <div class="text-xs uppercase tracking-wider font-bold text-stone-400 dark:text-stone-500 flex items-center justify-between">
-                                <span>📄 Contenu complet de la lettre</span>
-                                <span class="text-[10px] text-stone-400">German Template</span>
-                            </div>
-                            
-                            <div x-show="previewLoading" class="flex items-center justify-center py-20 text-sm text-stone-500 bg-stone-50 dark:bg-stone-950/50 rounded-2xl border border-stone-200 dark:border-stone-800">
-                                ⌛ Chargement de la lettre...
-                            </div>
-                            <div x-show="previewError" class="py-4 px-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-sm" x-text="previewError"></div>
-                            
-                            <div x-show="!previewLoading && !previewError" 
-                                 class="bg-stone-950 text-stone-100 p-5 sm:p-6 rounded-2xl border border-stone-800 shadow-inner overflow-y-auto max-h-[380px] sm:max-h-[440px] text-xs sm:text-sm leading-relaxed whitespace-pre-line font-sans"
-                                 x-html="previewHtml">
-                            </div>
-                        </div>
-
-                        <!-- Right Panel: Companies List & Actions -->
-                        <div class="lg:col-span-5 flex flex-col justify-between space-y-4">
-                            
-                            <!-- List of companies -->
-                            <div class="flex-1 flex flex-col space-y-2">
-                                <div class="text-xs uppercase tracking-wider font-bold text-stone-400 dark:text-stone-500">
-                                    🏢 Entreprises concernées ({{ $pendingCount }})
-                                </div>
-                                <div class="bg-stone-50 dark:bg-stone-950/50 rounded-2xl border border-stone-200 dark:border-stone-800 p-3 overflow-y-auto max-h-[260px] space-y-2">
-                                    <template x-if="previewCompanies.length">
-                                        <ul class="space-y-2 text-xs">
-                                            <template x-for="company in previewCompanies" :key="company.email">
-                                                <li class="p-2.5 bg-white dark:bg-stone-900 rounded-xl border border-stone-200/80 dark:border-stone-800 flex justify-between items-center">
-                                                    <div>
-                                                        <div class="font-bold text-stone-900 dark:text-white" x-text="company.nom"></div>
-                                                        <div class="text-[11px] text-amber-800 dark:text-amber-400" x-text="company.email"></div>
-                                                    </div>
-                                                    <span class="px-2 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 rounded-md">En attente</span>
-                                                </li>
-                                            </template>
-                                        </ul>
-                                    </template>
-                                    <div x-show="previewCompanies.length === 0 && !previewLoading && !previewError" class="text-xs text-stone-500 p-2">Aucune entreprise.</div>
-                                </div>
-                            </div>
-
-                            <!-- Actions Box -->
-                            <div class="p-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl border border-amber-200/60 dark:border-amber-900/40 space-y-3">
-                                <p class="text-xs text-amber-900 dark:text-amber-300 leading-relaxed font-medium">
-                                    ⚠️ L'envoi sera déclenché pour l'ensemble des <strong>{{ $pendingCount }} entreprise(s)</strong> en attente.
-                                </p>
-                                <div class="flex flex-col sm:flex-row gap-2 pt-1">
-                                    <button type="button" @click="previewModal = false" class="w-full sm:w-1/3 py-2.5 bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 font-bold text-xs rounded-xl transition">
-                                        Annuler
-                                    </button>
-                                    <form action="{{ route('envoi.masse') }}" method="POST" class="w-full sm:w-2/3">
-                                        @csrf
-                                        <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-amber-800 via-amber-700 to-yellow-700 hover:from-amber-700 hover:to-yellow-600 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-amber-800/25 transition">
-                                            🚀 Confirmer l'envoi
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-
-                        </div>
-
-                    </div>
                 </div>
 
             </div>
