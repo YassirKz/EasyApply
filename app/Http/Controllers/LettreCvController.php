@@ -200,12 +200,18 @@ class LettreCvController extends Controller
     /**
      * Download or preview PDF CV.
      */
-    public function previewPdf()
+    public function previewPdf(Request $request)
     {
         $user = Auth::user();
         // Global Scope auto-filters to Auth::id()
         $cvSections = CvSection::all()->keyBy('section');
         $pdf = Pdf::loadView('cv.pdf_template', compact('cvSections', 'user'));
+
+        if ($request->has('download')) {
+            $slugName = \Illuminate\Support\Str::slug($user->name ?? 'lebenslauf');
+            return $pdf->download("lebenslauf_{$slugName}.pdf");
+        }
+
         return $pdf->stream('lebenslauf.pdf');
     }
 }

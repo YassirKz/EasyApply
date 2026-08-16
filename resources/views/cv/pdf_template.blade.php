@@ -95,7 +95,7 @@
     );
     $photoPath = !empty($photoFiles) ? reset($photoFiles) : null;
     $photoBase64 = '';
-    if (extension_loaded('gd') && $photoPath && file_exists($photoPath)) {
+    if ($photoPath && file_exists($photoPath)) {
         $photoData = file_get_contents($photoPath);
         $extRaw = strtolower(pathinfo($photoPath, PATHINFO_EXTENSION));
         // DomPDF requires 'jpeg' not 'jpg'
