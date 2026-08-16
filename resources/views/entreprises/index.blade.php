@@ -562,8 +562,8 @@
 
                         <!-- Personalized text -->
                         <div>
-                            <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">Texte Personnalisé (Optionnel)</label>
-                            <textarea name="texte_personnalise" id="add-texte" rows="2" placeholder="Saisissez un texte ou laissez Gemini IA le rédiger..." class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white"></textarea>
+                            <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1">Texte Personnalisé *</label>
+                            <textarea name="texte_personnalise" id="add-texte" rows="3" required x-model="addForm.texte_personnalise" placeholder="Rédigez un paragraphe ou utilisez 'Rechercher avec l'IA' pour le générer automatiquement..." class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white transition" :class="{ 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/20': addForm.texte_personnalise }"></textarea>
                         </div>
 
                         <!-- Actions -->
@@ -615,8 +615,8 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">Texte Personnalisé</label>
-                        <textarea name="texte_personnalise" x-model="editCompany.texte_personnalise" rows="3" class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white"></textarea>
+                        <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider mb-1.5">Texte Personnalisé *</label>
+                        <textarea name="texte_personnalise" x-model="editCompany.texte_personnalise" rows="3" required class="w-full text-sm bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-amber-500 text-stone-900 dark:text-white"></textarea>
                     </div>
                     <div class="flex justify-end gap-3 pt-4 border-t border-stone-100 dark:border-stone-800">
                         <button type="button" @click="editModal = false" class="px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-bold rounded-xl hover:bg-stone-200 transition">Annuler</button>
@@ -785,7 +785,7 @@
                 searching: false,
                 searchError: null,
 
-                addForm: { nom: '', email: '', directeur: '', secteur: '' },
+                addForm: { nom: '', email: '', directeur: '', secteur: '', telephone: '', texte_personnalise: '' },
 
                 init() {
                     this.$watch('addModal', (v) => {
@@ -795,7 +795,7 @@
                             this.searchInput = '';
                             this.searching = false;
                             this.searchError = null;
-                            this.addForm = { nom: '', email: '', directeur: '', secteur: '' };
+                            this.addForm = { nom: '', email: '', directeur: '', secteur: '', telephone: '', texte_personnalise: '' };
                         }
                     });
                 },
@@ -855,6 +855,7 @@
                             }
                             if (data.telefon)  this.addForm.telephone = decodeHtml(data.telefon);
                             if (data.secteur)  this.addForm.secteur   = decodeHtml(data.secteur);
+                            if (data.texte_personnalise) this.addForm.texte_personnalise = decodeHtml(data.texte_personnalise);
                         } else {
                             this.extractError = data.message || 'Erreur lors de extraction.';
                         }

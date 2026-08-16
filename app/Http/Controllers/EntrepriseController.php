@@ -75,7 +75,7 @@ class EntrepriseController extends Controller
     /**
      * Store a newly created entreprise in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request, GeminiService $geminiService)
     {
         $userId = Auth::id();
 
@@ -90,6 +90,11 @@ class EntrepriseController extends Controller
             'telephone' => 'nullable|string|max:50',
             'secteur' => 'nullable|string|max:255',
             'texte_personnalise' => 'nullable|string',
+        ], [
+            'nom.required'       => 'Le nom de l\'entreprise est obligatoire.',
+            'email.required'     => 'L\'adresse email est obligatoire.',
+            'email.unique'       => 'Cette entreprise a déjà été ajoutée.',
+            'directeur.required' => 'Le nom du directeur ou responsable RH est obligatoire.',
         ]);
 
         // Security cleaning: strip tags and trim (Blade will escape on output)
@@ -97,7 +102,22 @@ class EntrepriseController extends Controller
         $validated['directeur'] = strip_tags(trim($validated['directeur']));
         if (isset($validated['telephone'])) $validated['telephone'] = strip_tags(trim($validated['telephone']));
         if (isset($validated['secteur'])) $validated['secteur'] = strip_tags(trim($validated['secteur']));
-        if (isset($validated['texte_personnalise'])) $validated['texte_personnalise'] = strip_tags(trim($validated['texte_personnalise']));
+
+        // If texte_personnalise is missing or empty, auto-generate it via AI!
+        if (empty($validated['texte_personnalise'])) {
+            $cvSections = \App\Models\CvSection::all()->pluck('contenu', 'section')->toArray();
+            $validated['texte_personnalise'] = $geminiService->generatePersonalizedText(
+                $validated['nom'],
+                $validated['secteur'] ?? null,
+                $validated['directeur'] ?? null,
+                null,
+                $cvSections,
+                $validated['email'],
+                $validated['telephone'] ?? null
+            );
+        } else {
+            $validated['texte_personnalise'] = strip_tags(trim($validated['texte_personnalise']));
+        }
 
         // user_id is auto-set by model booted() hook, but explicit is safer
         $validated['user_id'] = $userId;
@@ -109,7 +129,7 @@ class EntrepriseController extends Controller
     /**
      * Update the specified entreprise in storage.
      */
-    public function update(Request $request, Entreprise $entreprise)
+    public function update(Request $request, Entreprise $entreprise, GeminiService $geminiService)
     {
         $userId = Auth::id();
 
@@ -126,13 +146,20 @@ class EntrepriseController extends Controller
             'telephone' => 'nullable|string|max:50',
             'secteur' => 'nullable|string|max:255',
             'texte_personnalise' => 'nullable|string',
+        ], [
+            'nom.required'       => 'Le nom de l\'entreprise est obligatoire.',
+            'email.required'     => 'L\'adresse email est obligatoire.',
+            'directeur.required' => 'Le nom du directeur ou responsable RH est obligatoire.',
         ]);
 
         $validated['nom'] = strip_tags(trim($validated['nom']));
         $validated['directeur'] = strip_tags(trim($validated['directeur']));
         if (isset($validated['telephone'])) $validated['telephone'] = strip_tags(trim($validated['telephone']));
         if (isset($validated['secteur'])) $validated['secteur'] = strip_tags(trim($validated['secteur']));
-        if (isset($validated['texte_personnalise'])) $validated['texte_personnalise'] = strip_tags(trim($validated['texte_personnalise']));
+
+        if (!empty($validated['texte_personnalise'])) {
+            $validated['texte_personnalise'] = strip_tags(trim($validated['texte_personnalise']));
+        }
 
         $entreprise->update($validated);
 
@@ -533,14 +560,26 @@ class EntrepriseController extends Controller
 
         try {
             $extracted = $geminiService->extractJobData($validated['texte_offre']);
+            $cvSections = \App\Models\CvSection::all()->pluck('contenu', 'section')->toArray();
+
+            $aiText = $geminiService->generatePersonalizedText(
+                $extracted['firma'] ?? 'Unternehmen',
+                $extracted['secteur'] ?? null,
+                $extracted['direktor'] ?? null,
+                $validated['texte_offre'],
+                $cvSections,
+                $extracted['email'] ?? null,
+                $extracted['telefon'] ?? null
+            );
 
             return response()->json([
-                'success'  => true,
-                'firma'    => $extracted['firma'] ?? '',
-                'email'    => $extracted['email'] ?? '',
-                'direktor' => $extracted['direktor'] ?? '',
-                'secteur'  => $extracted['secteur'] ?? '',
-                'telefon'  => $extracted['telefon'] ?? '',
+                'success'            => true,
+                'firma'              => $extracted['firma'] ?? '',
+                'email'              => $extracted['email'] ?? '',
+                'direktor'           => $extracted['direktor'] ?? '',
+                'secteur'            => $extracted['secteur'] ?? '',
+                'telefon'            => $extracted['telefon'] ?? '',
+                'texte_personnalise' => $aiText,
             ]);
         } catch (\Exception $e) {
             Log::error('extractFromText failed: ' . $e->getMessage());
