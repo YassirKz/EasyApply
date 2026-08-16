@@ -686,8 +686,8 @@
         </div>
 
         <!-- ✅ Prévisualisation avant envoi en masse -->
-        <div x-show="previewModal" x-cloak class="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div @click.away="previewModal = false" class="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-4xl w-full p-6 space-y-5 border border-stone-200 dark:border-stone-800 overflow-hidden">
+        <div x-show="previewModal" x-cloak class="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-50 overflow-y-auto p-4 sm:p-6 flex items-center justify-center">
+            <div @click.away="previewModal = false" class="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-4xl w-full p-6 space-y-5 border border-stone-200 dark:border-stone-800 my-auto max-h-[90vh] overflow-y-auto">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-stone-100 dark:border-stone-800 pb-4">
                     <div>
                         <h3 class="font-extrabold text-xl text-stone-900 dark:text-white flex items-center gap-2">
@@ -709,8 +709,8 @@
                     </div>
 
                     <div class="xl:col-span-2 space-y-3">
-                        <div class="p-4 bg-stone-50 dark:bg-stone-950/50 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm">
-                            <div class="text-xs uppercase tracking-[0.2em] font-bold text-stone-400 dark:text-stone-500 mb-3">Aperçu de la lettre</div>
+                        <div class="p-4 bg-stone-50 dark:bg-stone-950/50 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm max-h-96 overflow-y-auto">
+                            <div class="text-xs uppercase tracking-[0.2em] font-bold text-stone-400 dark:text-stone-500 mb-3 sticky top-0 bg-stone-50 dark:bg-stone-950 py-1 z-10">Aperçu de la lettre</div>
                             <div x-show="previewLoading" class="flex items-center justify-center py-10 text-sm text-stone-500 dark:text-stone-400">Chargement de l'aperçu...</div>
                             <div x-show="previewError" class="py-4 px-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-sm" x-text="previewError"></div>
                             <div x-show="!previewLoading && !previewError" class="max-w-none text-sm leading-relaxed space-y-4 text-stone-700 dark:text-stone-200" x-html="previewHtml"></div>
