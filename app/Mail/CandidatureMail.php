@@ -5,6 +5,7 @@ namespace App\Mail;
 use App\Models\Entreprise;
 use App\Models\Parametre;
 use App\Models\CvSection;
+use App\Models\Document;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -150,10 +151,12 @@ class CandidatureMail extends Mailable
 
         // Check if the owner's custom document PDF (Anlagen) exists in storage
         $userId = $this->entreprise->user_id;
-        $docPath = storage_path("app/documents/user_{$userId}/anlagen.pdf");
-        if (file_exists($docPath)) {
+        $document = Document::where('user_id', $userId)->where('secteur', $this->entreprise->secteur)->first()
+            ?? Document::where('user_id', $userId)->where('est_defaut', true)->first();
+        $docPath = $document ? storage_path('app/private/'.$document->fichier) : null;
+        if ($docPath && file_exists($docPath)) {
             $attachments[] = Attachment::fromPath($docPath)
-                ->as('Anlagen.pdf')
+                ->as($document->nom.'.pdf')
                 ->withMime('application/pdf');
         }
 

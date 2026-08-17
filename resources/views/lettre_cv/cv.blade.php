@@ -53,8 +53,19 @@
                 </div>
 
                 <p class="text-xs sm:text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
-                    Téléversez votre fichier PDF unique regroupant vos certificats, diplômes et attestations (<em>Anlagen</em>). Ce fichier sera <strong>automatiquement joint à toutes vos candidatures</strong> (en plus de votre CV) sous le nom <code>Anlagen_Yassir_Kezzi.pdf</code>.
+                    Ajoutez plusieurs PDF : EasyApply choisit le document du même secteur que l'entreprise, puis le document marqué par défaut.
                 </p>
+
+                @if($documents->isNotEmpty())
+                    <div class="space-y-2">
+                        @foreach($documents as $document)
+                            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 dark:border-stone-700 p-3 text-xs">
+                                <div><strong>{{ $document->nom }}</strong> — {{ $document->secteur ?: 'Tous secteurs' }} @if($document->est_defaut)<span class="text-emerald-600">· Par défaut</span>@endif</div>
+                                <div class="flex gap-2"><a class="text-amber-700 font-bold" href="{{ route('cv.documents.show', $document) }}">Télécharger</a><form method="POST" action="{{ route('cv.documents.destroy', $document) }}">@csrf @method('DELETE')<button class="text-rose-600 font-bold">Supprimer</button></form></div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
 
                 @if($hasDocuments)
                     <div class="flex flex-wrap items-center justify-between gap-3 p-4 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/50 rounded-xl">
@@ -82,9 +93,12 @@
 
                 <form action="{{ route('cv.documents.upload') }}" method="POST" enctype="multipart/form-data" class="space-y-3 pt-2">
                     @csrf
-                    <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
-                        {{ $hasDocuments ? 'Remplacer le fichier PDF de documents' : 'Téléverser un fichier PDF de documents (max 15 Mo)' }}
-                    </label>
+                    <label class="block text-xs font-bold text-stone-700 dark:text-stone-300 uppercase tracking-wider">Ajouter un PDF (max. 15 Mo)</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input name="nom" placeholder="Nom du document (ex. CV IT)" class="rounded-xl border-stone-200 dark:border-stone-700 dark:bg-stone-800 text-sm">
+                        <input name="secteur" placeholder="Secteur ciblé (optionnel)" class="rounded-xl border-stone-200 dark:border-stone-700 dark:bg-stone-800 text-sm">
+                    </div>
+                    <label class="inline-flex items-center gap-2 text-xs"><input type="checkbox" name="est_defaut" value="1"> Utiliser par défaut</label>
                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                         <input type="file" 
                                name="document" 
@@ -102,11 +116,9 @@
                 @csrf
 
                 @php
-                    $userId = Auth::id();
-                    $userPhoto = public_path("images/profile_photo_user_{$userId}.jpg");
-                    $existingPhotos = file_exists($userPhoto) ? [$userPhoto] : glob(public_path('images/profile_photo.*'));
-                    $hasExistingPhoto = !empty($existingPhotos) && file_exists(reset($existingPhotos));
-                    $existingPhotoUrl = $hasExistingPhoto ? asset('images/' . basename(reset($existingPhotos))) . '?v=' . time() : null;
+                    $userPhoto = \App\Http\Controllers\LettreCvController::getPhotoPath();
+                    $hasExistingPhoto = file_exists($userPhoto);
+                    $existingPhotoUrl = $hasExistingPhoto ? route('cv.photo') . '?v=' . filemtime($userPhoto) : null;
                 @endphp
 
                 <!-- 📷 Section: Photo de Profil (Bewerbungsfoto) -->

@@ -228,10 +228,10 @@ class LettreCvControllerTest extends TestCase
              ->assertRedirect()
              ->assertSessionHas('success');
 
-        $this->assertFileExists(public_path("images/profile_photo_user_{$this->user->id}.jpg"));
+        $this->assertFileExists(\App\Http\Controllers\LettreCvController::getPhotoPath($this->user->id));
 
         // Cleanup
-        @unlink(public_path("images/profile_photo_user_{$this->user->id}.jpg"));
+        @unlink(\App\Http\Controllers\LettreCvController::getPhotoPath($this->user->id));
         @unlink($tmpPath);
     }
 
@@ -303,10 +303,10 @@ class LettreCvControllerTest extends TestCase
              ->assertRedirect(route('cv.edit'))
              ->assertSessionHas('success');
 
-        $docPath = storage_path("app/documents/user_{$this->user->id}/anlagen.pdf");
+        $document = \App\Models\Document::where('user_id', $this->user->id)->firstOrFail();
+        $docPath = storage_path('app/private/' . $document->fichier);
         $this->assertFileExists($docPath);
 
-        // Clean up
         @unlink($docPath);
     }
 

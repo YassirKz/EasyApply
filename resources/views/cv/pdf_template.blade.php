@@ -84,16 +84,7 @@
     $user = $user ?? Auth::user();
     $userId = $user?->id ?? Auth::id() ?? 1;
 
-    $userPhoto = public_path("images/profile_photo_user_{$userId}.jpg");
-    $photoFiles = file_exists($userPhoto) ? [$userPhoto] : array_merge(
-        glob(public_path('images/profile_photo.jpg')) ?: [],
-        glob(public_path('images/profile_photo.JPG')) ?: [],
-        glob(public_path('images/profile_photo.jpeg')) ?: [],
-        glob(public_path('images/profile_photo.png')) ?: [],
-        glob(public_path('images/profile_photo.PNG')) ?: [],
-        glob(public_path('images/profile_photo.webp')) ?: []
-    );
-    $photoPath = !empty($photoFiles) ? reset($photoFiles) : null;
+    $photoPath = \App\Http\Controllers\LettreCvController::getPhotoPath($userId);
     $photoBase64 = '';
     if ($photoPath && file_exists($photoPath)) {
         $photoData = file_get_contents($photoPath);
