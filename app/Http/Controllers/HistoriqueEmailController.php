@@ -15,7 +15,11 @@ class HistoriqueEmailController extends Controller
             : 'date_envoi';
         $direction = $request->input('direction') === 'asc' ? 'asc' : 'desc';
 
-        $query = HistoriqueEmail::with('entreprise');
+        // HistoriqueEmail has no direct owner column: always constrain it through
+        // the company owned by the currently authenticated tenant.
+        $query = HistoriqueEmail::query()
+            ->whereHas('entreprise', fn ($query) => $query->where('user_id', $request->user()->id))
+            ->with('entreprise');
 
         if ($sort === 'entreprise') {
             $query->leftJoin('entreprises', 'historique_emails.entreprise_id', '=', 'entreprises.id')

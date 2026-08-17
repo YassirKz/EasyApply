@@ -69,7 +69,7 @@ class GeminiService
                 . ($cvSummary ? "\nLebenslauf des Bewerbers (Yassir Kezzi):\n{$cvSummary}\n" : "");
 
             try {
-                $response = Http::timeout(10)->withHeaders([
+                $response = Http::connectTimeout(5)->timeout(20)->retry(3, 500, throw: false)->withHeaders([
                     'Content-Type' => 'application/json',
                 ])->post($this->apiUrl, [
                     'contents' => [
@@ -143,7 +143,7 @@ class GeminiService
                 . $cleanOffer;
 
             try {
-                $response = Http::timeout(10)->withHeaders([
+                $response = Http::connectTimeout(5)->timeout(20)->retry(3, 500, throw: false)->withHeaders([
                     'Content-Type' => 'application/json',
                 ])->post($this->apiUrl, [
                     'contents' => [

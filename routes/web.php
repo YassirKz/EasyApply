@@ -14,7 +14,7 @@ Route::get('/', function () {
     return Auth::check() ? redirect()->route('dashboard') : redirect()->route('login');
 });
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Entreprises CRUD & Import & AI & Batch Deletion
@@ -27,9 +27,9 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/entreprises/{entreprise}', [EntrepriseController::class, 'destroy'])->name('entreprises.destroy');
     Route::post('/entreprises/import', [EntrepriseController::class, 'import'])->name('entreprises.import');
     Route::get('/entreprises/export', [EntrepriseController::class, 'exportExcel'])->name('entreprises.export');
-    Route::post('/entreprises/gemini-all', [EntrepriseController::class, 'generateAiAll'])->name('entreprises.geminiAll');
-    Route::post('/entreprises/{entreprise}/gemini', [EntrepriseController::class, 'generateAi'])->name('entreprises.gemini');
-    Route::post('/entreprises/extract-ia', [EntrepriseController::class, 'extractFromText'])->name('entreprises.extractIa');
+    Route::post('/entreprises/gemini-all', [EntrepriseController::class, 'generateAiAll'])->middleware('throttle:5,1')->name('entreprises.geminiAll');
+    Route::post('/entreprises/{entreprise}/gemini', [EntrepriseController::class, 'generateAi'])->middleware('throttle:20,1')->name('entreprises.gemini');
+    Route::post('/entreprises/extract-ia', [EntrepriseController::class, 'extractFromText'])->middleware('throttle:10,1')->name('entreprises.extractIa');
     Route::put('/entreprises/{id}/statut', [EntrepriseController::class, 'updateStatut'])->name('entreprises.updateStatut');
 
     Route::post('/envoi-preview', [EnvoiController::class, 'preview'])->name('envoi.preview');
@@ -63,4 +63,3 @@ Route::middleware(['auth'])->group(function () {
 });
 
 require __DIR__.'/auth.php';
-

@@ -2,12 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Mail\CandidatureMail;
+use App\Jobs\SendCandidatureJob;
 use App\Models\Entreprise;
-use App\Models\HistoriqueEmail;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class SendScheduledEmails extends Command
 {
@@ -40,38 +37,8 @@ class SendScheduledEmails extends Command
             return Command::SUCCESS;
         }
 
-        $sent = 0;
-        $failed = 0;
-
-        foreach ($dueEntreprises as $entreprise) {
-            try {
-                $candidatureMail = new CandidatureMail($entreprise);
-                Mail::to($entreprise->email)->send($candidatureMail);
-
-                $entreprise->update([
-                    'est_envoye'          => true,
-                    'date_envoi'          => now(),
-                    'programmation_envoi' => null,
-                ]);
-
-                HistoriqueEmail::create([
-                    'entreprise_id' => $entreprise->id,
-                    'type' => 'candidature',
-                    'objet' => $candidatureMail->envelope()->subject,
-                    'contenu' => strip_tags($candidatureMail->lettreTexte),
-                    'date_envoi' => now(),
-                    'statut' => 'envoye',
-                ]);
-
-                $sent++;
-                Log::info("Scheduled candidature sent to {$entreprise->nom} ({$entreprise->email})");
-            } catch (\Exception $e) {
-                $failed++;
-                Log::error("Scheduled send failed for {$entreprise->nom} ({$entreprise->email}): " . $e->getMessage());
-            }
-        }
-
-        $this->info("Scheduled sending finished: {$sent} sent, {$failed} failed.");
+        $dueEntreprises->each(fn (Entreprise $entreprise) => SendCandidatureJob::dispatch($entreprise->id));
+        $this->info("Scheduled sending queued: {$dueEntreprises->count()} job(s).");
         return Command::SUCCESS;
     }
 }

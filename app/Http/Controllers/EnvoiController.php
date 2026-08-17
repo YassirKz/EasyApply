@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\CandidatureMail;
 use App\Models\Entreprise;
-use App\Models\HistoriqueEmail;
+use App\Jobs\SendCandidatureJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -51,10 +51,8 @@ class EnvoiController extends Controller
      */
     public function envoyerMasse(Request $request)
     {
-        // Prevent PHP execution timeout during bulk email dispatch
-        set_time_limit(0);
-
-        // Select only companies pending immediate send (exclude future scheduled ones)
+        // The request must never wait on SMTP or PDF generation. Each company is
+        // claimed and sent by a queued job.
         $entreprises = Entreprise::where('est_envoye', false)
             ->where(function ($q) {
                 $q->whereNull('programmation_envoi')
@@ -67,50 +65,10 @@ class EnvoiController extends Controller
                              ->with('info', 'Aucune candidature prête pour envoi immédiat. Les candidatures programmées seront envoyées à l\'heure prévue.');
         }
 
-        $envoisReussis = 0;
-        $envoisEchoues = 0;
+        $entreprises->each(fn (Entreprise $entreprise) => SendCandidatureJob::dispatch($entreprise->id));
 
-        foreach ($entreprises as $entreprise) {
-            try {
-                $candidatureMail = new CandidatureMail($entreprise);
-
-                // Send email with attached ATS CV PDF
-                Mail::to($entreprise->email)->send($candidatureMail);
-
-                // Mark as sent
-                $entreprise->update([
-                    'est_envoye' => true,
-                    'date_envoi' => now(),
-                ]);
-
-                HistoriqueEmail::create([
-                    'entreprise_id' => $entreprise->id,
-                    'type' => 'candidature',
-                    'objet' => $candidatureMail->envelope()->subject,
-                    'contenu' => strip_tags($candidatureMail->lettreTexte),
-                    'date_envoi' => now(),
-                    'statut' => 'envoye',
-                ]);
-
-                $envoisReussis++;
-                Log::info("Candidature envoyée avec succès à : {$entreprise->nom} ({$entreprise->email})");
-
-                // Pause 1 second between emails to prevent SMTP server rate limiting (skip in tests)
-                if (app()->environment() !== 'testing') {
-                    sleep(1);
-                }
-            } catch (\Exception $e) {
-                $envoisEchoues++;
-                Log::error("Échec d'envoi à {$entreprise->nom} ({$entreprise->email}): " . $e->getMessage());
-            }
-        }
-
-        $msg = "Opération terminée : {$envoisReussis} email(s) envoyé(s) avec succès.";
-        if ($envoisEchoues > 0) {
-            $msg .= " {$envoisEchoues} échec(s) enregistré(s) dans les logs.";
-        }
-
-        return redirect()->route('entreprises.index')->with('success', $msg);
+        return redirect()->route('entreprises.index')
+            ->with('success', "{$entreprises->count()} candidature(s) ajoutée(s) à la file d’envoi.");
     }
 
     /**
@@ -127,7 +85,7 @@ class EnvoiController extends Controller
                              ->with('error', 'Aucune entreprise disponible pour le test. Ajoutez d\'abord une entreprise.');
         }
 
-        $testEmail = env('MAIL_FROM_ADDRESS', 'kezziyassir005@gmail.com');
+        $testEmail = config('mail.from.address');
 
         try {
             Mail::to($testEmail)->send(new CandidatureMail($entreprise));
@@ -174,6 +132,7 @@ class EnvoiController extends Controller
      */
     public function annulerProgrammation(Entreprise $entreprise)
     {
+        $this->authorize('update', $entreprise);
         $entreprise->update(['programmation_envoi' => null]);
 
         return redirect()->route('entreprises.index')

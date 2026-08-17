@@ -131,6 +131,7 @@ class EntrepriseController extends Controller
      */
     public function update(Request $request, Entreprise $entreprise, GeminiService $geminiService)
     {
+        $this->authorize('update', $entreprise);
         $userId = Auth::id();
 
         $validated = $request->validate([
@@ -193,6 +194,7 @@ class EntrepriseController extends Controller
      */
     public function destroy(Entreprise $entreprise)
     {
+        $this->authorize('delete', $entreprise);
         $entreprise->delete();
         return redirect()->route('entreprises.index')->with('success', 'Entreprise supprimée avec succès.');
     }
@@ -229,6 +231,7 @@ class EntrepriseController extends Controller
      */
     public function showJson(Entreprise $entreprise)
     {
+        $this->authorize('view', $entreprise);
         return response()->json([
             'id'                 => $entreprise->id,
             'nom'                => htmlspecialchars_decode($entreprise->nom, ENT_QUOTES),
@@ -299,6 +302,7 @@ class EntrepriseController extends Controller
      */
     public function generateAi(Entreprise $entreprise, GeminiService $geminiService)
     {
+        $this->authorize('update', $entreprise);
         $cvSections = \App\Models\CvSection::all()->pluck('contenu', 'section')->toArray();
 
         $aiText = $geminiService->generatePersonalizedText(
@@ -390,7 +394,9 @@ class EntrepriseController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:5120',
+            // Excel formats require a dedicated streaming parser. Do not accept
+            // binary XLS/XLSX files and then parse them as CSV.
+            'file' => 'required|file|mimes:csv,txt|max:5120',
         ]);
 
         $file = $request->file('file');
@@ -552,7 +558,7 @@ class EntrepriseController extends Controller
     public function extractFromText(Request $request, GeminiService $geminiService)
     {
         $validated = $request->validate([
-            'texte_offre' => 'required|string|min:20',
+            'texte_offre' => 'required|string|min:20|max:20000',
         ], [
             'texte_offre.required' => 'Le texte de l\'offre est obligatoire.',
             'texte_offre.min'      => 'Le texte de l\'offre doit contenir au moins 20 caractères.',
@@ -594,4 +600,3 @@ class EntrepriseController extends Controller
     
 
 }
-

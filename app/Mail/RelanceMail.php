@@ -21,8 +21,13 @@ class RelanceMail extends Mailable
     {
         $this->entreprise = $entreprise;
 
-        $templateParam = Parametre::where('cle', 'modele_relance')->first();
-        $template = $templateParam ? $templateParam->valeur : "Hallo [NOM_DIRECTEUR],\n\nIch wollte freundlich nach dem Stand meiner Bewerbung fragen.\n\nMit freundlichen Grüßen,\nYassir Kezzi";
+        // Console commands have no authenticated user, therefore global scopes
+        // cannot enforce tenant isolation here.
+        $template = Parametre::withoutGlobalScopes()
+            ->where('user_id', $entreprise->user_id)
+            ->where('cle', 'modele_relance')
+            ->value('valeur')
+            ?? "Hallo [NOM_DIRECTEUR],\n\nIch wollte freundlich nach dem Stand meiner Bewerbung fragen.\n\nMit freundlichen Grüßen,\nYassir Kezzi";
 
         $directeurClean = htmlspecialchars_decode(strip_tags($entreprise->directeur ?? ''), ENT_QUOTES);
         $text = str_replace('[NOM_DIRECTEUR]', $directeurClean, $template);
