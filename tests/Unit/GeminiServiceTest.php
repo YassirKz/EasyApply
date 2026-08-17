@@ -98,4 +98,10 @@ class GeminiServiceTest extends TestCase
         $text = $this->service->generatePersonalizedText('Allianz SE');
         $this->assertSame($text, strip_tags($text));
     }
+
+    public function test_fallback_text_is_detailed(): void
+    {
+        $text = $this->service->generatePersonalizedText('Beispiel GmbH', 'Softwareentwicklung');
+        $this->assertGreaterThanOrEqual(150, str_word_count($text));
+    }
 }

@@ -18,7 +18,7 @@ class GeminiService
     }
 
     /**
-     * Generate 4-6 personalized motivation sentences in German for a company application.
+     * Generate a detailed, genuinely personalized German motivation paragraph.
      */
     public function generatePersonalizedText(
         string $nomEntreprise,
@@ -48,16 +48,14 @@ class GeminiService
         // If Gemini API Key is configured in .env, perform live AI call
         if (!empty($this->apiKey) && $this->apiKey !== 'YOUR_GEMINI_API_KEY') {
             $prompt = "Du bist ein professioneller KI-Assistent in der Anwendung EasyApply für Bewerbungen in Deutschland.\n"
-                . "Deine Aufgabe: Schreibe ein hochpersonalisiertes Anschreiben-Absatz (4 bis 6 Sätze) auf Deutsch.\n\n"
+                . "Deine Aufgabe: Schreibe EINEN langen, hochpersonalisierten Anschreiben-Absatz mit 180 bis 230 Wörtern auf Deutsch.\n\n"
                 . "STRIKTE REGELN:\n"
                 . "1. Professioneller, hochmotivierter und überzeugender Ton.\n"
-                . "2. Verknüpfe die spezifischen Fähigkeiten des Bewerbers (aus seinem Lebenslauf) direkt mit den Anforderungen der Stellenanzeige.\n"
-                . "3. ZWINGENDE LESE-BESTÄTIGUNG: Erwähne mindestens EIN konkretes, spezifisches Detail aus der Stellenanzeige (z.B. Branche, Software-Typ, Ort, Aufgaben oder Technologie-Stack).\n"
-                . "4. ABSOLUTES VERBOT von Anreden wie 'Sehr geehrte Damen und Herren'.\n"
-                . "5. ABSOLUTES VERBOT von Grußformeln wie 'Mit freundlichen Grüßen'.\n"
-                . "6. Antworte AUSSCHLIESSLICH auf Deutsch mit makelloser Grammatik.\n"
-                . "7. KEINE Anführungszeichen, KEIN Einleitungstext wie 'Hier ist der Text'. Gib NUR den Fließtext des Absatzes zurück.\n"
-                . "8. VERWENDE KEINE eckigen Klammern [] oder Platzhalter. Ersetze Begriffe direkt durch die echten Namen und konkreten Daten des Unternehmens.\n\n"
+                . "2. Verknüpfe mindestens DREI konkrete Fähigkeiten oder Erfahrungen aus dem Lebenslauf direkt mit den Anforderungen der Stellenanzeige.\n"
+                . "3. ZWINGENDE LESE-BESTÄTIGUNG: Erwähne mindestens ZWEI konkrete Details aus der Stellenanzeige (z.B. Branche, Software-Typ, Ort, Aufgaben oder Technologie-Stack). Wenn keine Anzeige vorhanden ist, erläutere glaubwürdig die Branche und das Unternehmen.\n"
+                . "4. Erkläre konkret, welchen Nutzen der Bewerber im Team schaffen kann, und nenne Lernbereitschaft, Zusammenarbeit sowie Qualitätsbewusstsein ohne leere Floskeln.\n"
+                . "5. ABSOLUTES VERBOT von Anreden wie 'Sehr geehrte Damen und Herren' und Grußformeln wie 'Mit freundlichen Grüßen'.\n"
+                . "6. Antworte AUSSCHLIESSLICH auf Deutsch mit makelloser Grammatik. Gib nur den Fließtext zurück, ohne Titel, Aufzählung, Anführungszeichen oder Platzhalter.\n\n"
                 . "EINGABEDATEN:\n"
                 . "Unternehmensdaten:\n"
                 . "- Firma: {$nomClean}\n"
@@ -72,6 +70,10 @@ class GeminiService
                 $response = Http::connectTimeout(5)->timeout(20)->retry(3, 500, throw: false)->withHeaders([
                     'Content-Type' => 'application/json',
                 ])->post($this->apiUrl, [
+                    'generationConfig' => [
+                        'temperature' => 0.7,
+                        'maxOutputTokens' => 700,
+                    ],
                     'contents' => [
                         [
                             'parts' => [
@@ -111,9 +113,11 @@ class GeminiService
             "Die Arbeit an maßgeschneiderten IT-Lösungen bei {$nomClean} fasziniert mich sehr. Ich bringe eine hohe Lernbereitschaft sowie ausgeprägte Problemlösungskompetenz mit, um Ihre Entwicklerteams {$secteurPhrase} tatkräftig zu unterstützen. Meine fundierten Kenntnisse im Bereich der modernen Anwendungsentwicklung ermöglichen mir einen raschen Einarbeitungsprozess in Ihre spezifischen Technologien. Ich freue mich darauf, mich motiviert und zielgerichtet in Ihre anstehenden Projekte einzubringen."
         ];
 
-        // Pick deterministic yet varied pattern based on company name hash
+        $detail = " Besonders wichtig ist mir, technische Anforderungen sorgfältig zu verstehen, sie in nachvollziehbare Lösungen zu übersetzen und dabei zuverlässig mit Kolleginnen und Kollegen zusammenzuarbeiten. Ich arbeite strukturiert, dokumentiere Entscheidungen verständlich und überprüfe Ergebnisse mit Blick auf Qualität, Wartbarkeit und die tatsächlichen Bedürfnisse der Nutzer. Durch meine schnelle Auffassungsgabe kann ich mich in neue Werkzeuge und Prozesse zügig einarbeiten; gleichzeitig bringe ich die Ausdauer mit, komplexe Aufgaben Schritt für Schritt zu analysieren. Bei {$nomClean} möchte ich daher nicht nur lernen, sondern mit Eigeninitiative, offener Kommunikation und einem verantwortungsvollen Umgang mit Daten einen messbaren Beitrag zu nachhaltigen digitalen Lösungen {$secteurPhrase} leisten.";
+
+        // Pick deterministic yet varied pattern based on company name hash.
         $index = abs(crc32($nomClean)) % count($patterns);
-        return $patterns[$index];
+        return $patterns[$index] . $detail;
     }
 
     /**
